@@ -1,6 +1,7 @@
 package com.zigae.hermes.vehicle
 
 import ai.pleos.playground.vehicle.constant.control.WiperSwitch
+import com.zigae.hermes.radar.RainLevel
 
 /** 와이퍼 단계로 추정한 체감 강수 강도 (F4 레이더 × 와이퍼 교차 검증의 입력). */
 enum class WiperRain(val label: String) {
@@ -27,4 +28,13 @@ fun WiperSwitch?.toRain(): WiperRain = when (this) {
     WiperSwitch.CONTINUOUS_LEVEL_5 -> WiperRain.HEAVY
     // AUTO는 우적 센서 판단이라 단계만으로 강도를 알 수 없다.
     WiperSwitch.AUTO, WiperSwitch.SERVICE, WiperSwitch.OTHER, null -> WiperRain.UNKNOWN
+}
+
+/** 크라우드 관측용 강도. 알 수 없으면 null(올리지 않음) */
+fun WiperRain.toRainLevel(): RainLevel? = when (this) {
+    WiperRain.NONE -> RainLevel.NONE
+    WiperRain.MIST, WiperRain.LIGHT -> RainLevel.LIGHT
+    WiperRain.MODERATE -> RainLevel.MODERATE
+    WiperRain.HEAVY -> RainLevel.HEAVY
+    WiperRain.UNKNOWN -> null
 }

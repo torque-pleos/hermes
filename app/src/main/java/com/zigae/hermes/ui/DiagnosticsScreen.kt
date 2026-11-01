@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.zigae.hermes.fleet.FleetState
 import com.zigae.hermes.navi.NaviSnapshot
 import com.zigae.hermes.radar.LegRain
 import com.zigae.hermes.radar.PointForecast
@@ -43,7 +44,10 @@ fun DiagnosticsScreen(
     kma: KmaState,
     routeRain: List<RoutePointRain>,
     legs: List<LegRain>,
+    fleet: FleetState,
     onRequestTestRoute: () -> Unit,
+    onToggleConsent: () -> Unit,
+    onSeedDemo: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().padding(32.dp)) {
         Text("Hermes · SDK 진단", fontSize = 36.sp, fontWeight = FontWeight.Bold)
@@ -60,6 +64,8 @@ fun DiagnosticsScreen(
                     Line("도어 $area", when (locked) { true -> "잠김"; false -> "열림"; null -> "-" })
                 }
                 Line("오류", vehicle.lastError ?: "없음")
+                Spacer(Modifier.height(16.dp))
+                FleetSection(fleet, onToggleConsent, onSeedDemo)
             }
             Panel("내비 (NaviHelper)") {
                 Line("연결", if (navi.connected) "됨" else "안 됨")
@@ -83,6 +89,26 @@ fun DiagnosticsScreen(
                 RadarSection(radar, kma, routeRain, legs, vehicle)
             }
         }
+    }
+}
+
+@Composable
+private fun ColumnScope.FleetSection(fleet: FleetState, onToggleConsent: () -> Unit, onSeedDemo: () -> Unit) {
+    Text("차량 간 와이퍼 공유", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+    if (!fleet.configured) {
+        Line("상태", "서버 설정 없음 (FLEET_URL/KEY)")
+        return
+    }
+    val now = System.currentTimeMillis() / 1000
+    Line("공유 동의", if (fleet.consent) "켜짐 (위치 약 500m 단위 · 와이퍼 단계)" else "꺼짐")
+    val demo = fleet.reports.count { it.demo }
+    val vehicles = fleet.reports.map { it.vehicleId }.distinct().size
+    Line("주변 관측", "최근 20분 ${vehicles}대 (가상 ${fleet.reports.filter { it.demo }.map { it.vehicleId }.distinct().size}대, 관측 ${fleet.reports.size}건 중 $demo)")
+    if (fleet.lastUploadEpochSec > 0) Line("내 관측 업로드", "${(now - fleet.lastUploadEpochSec) / 60}분 전")
+    fleet.error?.let { Line("오류", it) }
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Button(onClick = onToggleConsent) { Text(if (fleet.consent) "공유 끄기" else "공유 동의", fontSize = 18.sp) }
+        Button(onClick = onSeedDemo) { Text("시연: 경로 앞 가상 차량 비 관측", fontSize = 18.sp) }
     }
 }
 

@@ -24,6 +24,9 @@ android {
             rootProject.file("secrets.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
         }
         buildConfigField("String", "KMA_SERVICE_KEY", "\"${secrets.getProperty("KMA_SERVICE_KEY", "")}\"")
+        // 차량 간 와이퍼 관측 공유 서버 (Supabase URL + publishable 키)
+        buildConfigField("String", "FLEET_URL", "\"${secrets.getProperty("FLEET_URL", "")}\"")
+        buildConfigField("String", "FLEET_KEY", "\"${secrets.getProperty("FLEET_KEY", "")}\"")
     }
 
     buildTypes {

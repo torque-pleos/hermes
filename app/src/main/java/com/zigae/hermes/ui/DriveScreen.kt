@@ -62,7 +62,12 @@ fun DriveScreen(routeRain: List<RoutePointRain>, legs: List<LegRain>, loading: B
             level(worst?.forecast),
             if (worst == null || level(worst.forecast) == RainLevel.NONE) "가는 길 비 예보 없음"
             else "${hhmm(worst.point.etaEpochSec)} 부근 ${level(worst.forecast).label}",
-            if (worst == null && next.beyondHorizon > 0) "예보 범위 밖 구간 있음" else null,
+            when {
+                (worst?.forecast as? PointForecast.Fleet)?.evidence?.consensus != null ->
+                    "주변 차량 ${(worst.forecast as PointForecast.Fleet).evidence.wetVehicles}대가 비 관측"
+                worst == null && next.beyondHorizon > 0 -> "예보 범위 밖 구간 있음"
+                else -> null
+            },
         )
         legs.getOrNull(1)?.let { after ->
             Spacer(Modifier.height(40.dp))
