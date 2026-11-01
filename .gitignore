@@ -1,0 +1,24 @@
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# 비밀값 (Playground 클라이언트 시크릿, API 키 등)
+.env
+.env.*
+secrets.properties
+
+# macOS
+.DS_Store
+
+# Playwright MCP 기록
+.playwright-mcp/
