@@ -31,6 +31,16 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests.all {
+            // 실제 RainViewer 데이터 검증: ./gradlew :app:testDebugUnitTest --tests '*Hindcast*' -Phindcast
+            it.systemProperty("hermes.hindcast", project.hasProperty("hindcast").toString())
+            it.systemProperty("hermes.cacheDir", layout.buildDirectory.dir("rainviewer-cache").get().asFile.path)
+            it.outputs.upToDateWhen { !project.hasProperty("hindcast") }
+            it.testLogging.showStandardStreams = project.hasProperty("hindcast")
+        }
+    }
 }
 
 kotlin {
@@ -50,4 +60,5 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20250517")
 }
