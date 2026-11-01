@@ -21,13 +21,13 @@ class RadarCoreTest {
     }
 
     @Test
-    fun decodesBlackWhiteColorScheme() {
-        assertEquals(RadarFrame.NO_ECHO, RadarFrame.decodeBlackWhite(0x00000000))
-        assertEquals(0f, RadarFrame.decodeBlackWhite(argb(0x20))) // #202020 → 0 dBZ
-        assertEquals(40f, RadarFrame.decodeBlackWhite(argb(0x48))) // #484848 → 40 dBZ
-        assertEquals(95f, RadarFrame.decodeBlackWhite(argb(0xff))) // 눈 영역 #ffffff → 95 dBZ
-        assertTrue(RadarFrame.isSnow(argb(0xa0)))
-        assertEquals(0f, RadarFrame.decodeBlackWhite(argb(0xa0))) // 눈 #a0a0a0 → 0 dBZ
+    fun decodesUniversalBluePalette() {
+        assertEquals(RadarFrame.NO_ECHO, RainViewerPalette.decode(0x00000000))
+        // 실제 타일에서 가장 많이 나온 색 #0091ca → 22 dBZ, #51c5e8 → 17 dBZ
+        assertEquals(22f, RainViewerPalette.decode(0xFF0091CA.toInt()))
+        assertEquals(17f, RainViewerPalette.decode(0xFF51C5E8.toInt()))
+        assertEquals(40f, RainViewerPalette.decode(RainViewerPalette.rainColor(40)))
+        assertEquals(RadarFrame.NO_ECHO, RainViewerPalette.decode(0xFF123456.toInt())) // 표에 없는 색
     }
 
     @Test
@@ -72,8 +72,12 @@ class RadarCoreTest {
         val now = cast.forecast(lat, lon, atEpochSec = 0)
         assertTrue(now is PointForecast.Rain && now.level == RainLevel.NONE)
 
-        // 예측 한계 초과
-        assertTrue(cast.forecast(lat, lon, atEpochSec = 120 * 60) is PointForecast.BeyondHorizon)
+        // 예측 한계 초과: 그 지점의 현재 관측값을 함께 준다
+        val beyond = cast.forecast(lat, lon, atEpochSec = 120 * 60)
+        assertTrue(beyond is PointForecast.BeyondHorizon && beyond.observedNow == RainLevel.NONE)
+        val (cLat, cLon) = latLonOf(latest, 60.0, 80.0)
+        val beyondCenter = cast.forecast(cLat, cLon, atEpochSec = 120 * 60)
+        assertTrue(beyondCenter is PointForecast.BeyondHorizon && beyondCenter.observedNow == RainLevel.HEAVY)
     }
 
     @Test
@@ -82,8 +86,6 @@ class RadarCoreTest {
         val (lat, lon) = latLonOf(latest, -50.0, 80.0)
         assertTrue(Nowcaster(latest, Motion.NONE).forecast(lat, lon, 0) is PointForecast.OutOfCoverage)
     }
-
-    private fun argb(grey: Int) = (0xFF shl 24) or (grey shl 16) or (grey shl 8) or grey
 
     private fun latLonOf(f: RadarFrame, gx: Double, gy: Double): Pair<Double, Double> =
         WebMercator.lat(f.originY + gy, f.zoom) to WebMercator.lon(f.originX + gx, f.zoom)
@@ -102,5 +104,35 @@ class RadarCoreTest {
             if (dx in -30..-15 && abs(dy) <= 3) v[y * w + x] = 25f
         }
         return RadarFrame(time, 7, 109 * 256, 49 * 256, w, h, v)
+    }
+}
+
+class RadarMosaicTest {
+
+    @Test
+    fun coveringAddsMarginAndCapsTileCount() {
+        val seoul = 37.41 to 127.09
+        val busan = 35.08 to 128.82
+        val range = TileRange.covering(listOf(seoul, busan), zoom = 7, marginPx = 100, maxTiles = 16)!!
+        assertTrue(range.count <= 16)
+        assertTrue(range.minX <= 109 && range.maxX >= 109)
+
+        val capped = TileRange.covering(listOf(seoul, busan), zoom = 7, marginPx = 600, maxTiles = 4)!!
+        assertEquals(4, capped.count)
+        // 축소 시 첫 지점(현재 위치)이 포함되어야 한다
+        val sx = (WebMercator.pixelX(seoul.second, 7) / 256).toInt()
+        val sy = (WebMercator.pixelY(seoul.first, 7) / 256).toInt()
+        assertTrue(sx in capped.minX..capped.maxX && sy in capped.minY..capped.maxY)
+    }
+
+    @Test
+    fun mosaicPlacesTilesAndDecodes() {
+        val range = TileRange(7, 109, 49, 110, 49)
+        val c40 = RainViewerPalette.rainColor(40)
+        val frame = RadarMosaic.build(0, range, mapOf((110 to 49) to IntArray(256 * 256) { c40 }))
+        assertEquals(512, frame.width)
+        assertEquals(RadarFrame.NO_ECHO, frame[10, 10]) // 없는 타일
+        assertEquals(40f, frame[300, 10]) // 두 번째 타일
+        assertEquals(109 * 256, frame.originX)
     }
 }

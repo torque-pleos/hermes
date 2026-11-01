@@ -21,6 +21,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zigae.hermes.navi.NaviSnapshot
+import com.zigae.hermes.radar.PointForecast
+import com.zigae.hermes.radar.RadarState
+import com.zigae.hermes.radar.RainLevel
+import com.zigae.hermes.radar.RoutePointRain
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.zigae.hermes.vehicle.VehicleSnapshot
 import com.zigae.hermes.vehicle.toRain
 
@@ -29,9 +36,9 @@ import com.zigae.hermes.vehicle.toRain
 fun DiagnosticsScreen(
     vehicle: VehicleSnapshot,
     navi: NaviSnapshot,
-    ttsStatus: String,
+    radar: RadarState,
+    routeRain: List<RoutePointRain>,
     onRequestTestRoute: () -> Unit,
-    onSpeak: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().padding(32.dp)) {
         Text("Hermes · SDK 진단", fontSize = 36.sp, fontWeight = FontWeight.Bold)
@@ -67,18 +74,58 @@ fun DiagnosticsScreen(
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = onRequestTestRoute) { Text("테스트 경로 설정 (대전 경유 → 부산신항)", fontSize = 20.sp) }
             }
-            Panel("음성 (Android TTS)") {
-                Line("상태", ttsStatus)
-                Spacer(Modifier.height(16.dp))
-                Button(onClick = onSpeak) { Text("안내 음성 테스트", fontSize = 20.sp) }
+            Panel("강수 레이더 (RainViewer)") {
+                RadarSection(radar, routeRain, vehicle)
             }
         }
     }
 }
 
-// 단위 미확인: 실제 값을 보고 m/초 여부를 확정한다.
-private fun km(meters: Int) = "${meters}m"
-private fun min(seconds: Int) = "${seconds}s"
+// NaviHelper 단위: remainDistance = m, remainTime = 초 (에뮬레이터 확인)
+private fun km(meters: Int) = "%.1fkm".format(meters / 1000.0)
+private fun min(seconds: Int) = if (seconds >= 3600) "${seconds / 3600}시간 ${seconds % 3600 / 60}분" else "${seconds / 60}분"
+
+private val clock = SimpleDateFormat("HH:mm", Locale.KOREA)
+private fun hhmm(epochSec: Long) = clock.format(Date(epochSec * 1000))
+
+private val compass = listOf("북", "북동", "동", "남동", "남", "남서", "서", "북서")
+private fun compass(deg: Double) = compass[((deg + 22.5) / 45).toInt() % 8]
+
+@Composable
+private fun ColumnScope.RadarSection(radar: RadarState, routeRain: List<RoutePointRain>, vehicle: VehicleSnapshot) {
+    val cast = radar.nowcaster
+    if (cast == null) {
+        Line("상태", if (radar.loading) "불러오는 중" else (radar.error ?: "위치 대기 중"))
+        return
+    }
+    val now = System.currentTimeMillis() / 1000
+    val frame = cast.latest
+    Line("관측 시각", "${hhmm(frame.timeEpochSec)} (${(now - frame.timeEpochSec) / 60}분 전)")
+    Line("영역", "${radar.range?.count ?: 0}타일 · 프레임 ${radar.framesUsed}개")
+    val m = cast.motion
+    val lat = routeRain.firstOrNull()?.point?.lat ?: 37.0
+    Line(
+        "비구름 이동",
+        if (m.confidence <= 0.0) "추정 불가 (에코 부족)"
+        else "${compass(m.headingDeg())}쪽 %.0fkm/h · 신뢰도 %.0f%%".format(m.speedKmh(lat, frame.zoom), m.confidence * 100),
+    )
+    radar.error?.let { Line("오류", it) }
+    Spacer(Modifier.height(8.dp))
+    routeRain.forEach { (p, f) -> Line("${p.label} ${hhmm(p.etaEpochSec)}", describe(f)) }
+
+    // F4 미리보기: 현재 위치 레이더 vs 와이퍼
+    val here = routeRain.firstOrNull()?.forecast as? PointForecast.Rain
+    Spacer(Modifier.height(8.dp))
+    Line("교차 검증", "레이더 ${here?.level?.label ?: "-"} / 와이퍼 ${vehicle.wiperSwitch.toRain().label}")
+}
+
+private fun describe(f: PointForecast): String = when (f) {
+    is PointForecast.Rain ->
+        if (f.level == RainLevel.NONE) "비 없음" else "${f.level.label} %.1fmm/h (%.0fdBZ)".format(f.rateMmPerHour, f.dbz)
+    is PointForecast.BeyondHorizon ->
+        "예측 범위 밖 (+${f.leadMinutes}분) · 지금 그곳: ${f.observedNow?.label ?: "레이더 영역 밖"}"
+    PointForecast.OutOfCoverage -> "레이더 영역 밖"
+}
 
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.Panel(

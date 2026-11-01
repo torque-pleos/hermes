@@ -50,20 +50,6 @@ class RadarFrame(
     companion object {
         const val NO_ECHO = -32f
 
-        /**
-         * RainViewer 색상표 0번(Black and White: dBZ values) 픽셀 해석.
-         * - 알파 0: 에코 없음
-         * - R < 128: 비, dBZ = R - 32
-         * - R ≥ 128: 눈, dBZ = R - 160
-         */
-        fun decodeBlackWhite(argb: Int): Float {
-            val alpha = argb ushr 24
-            if (alpha == 0) return NO_ECHO
-            val v = (argb shr 16) and 0xFF
-            return if (v >= 128) (v - 160).toFloat() else (v - 32).toFloat()
-        }
-
-        fun isSnow(argb: Int): Boolean = (argb ushr 24) != 0 && ((argb shr 16) and 0xFF) >= 128
     }
 }
 

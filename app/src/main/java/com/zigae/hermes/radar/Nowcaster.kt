@@ -12,8 +12,8 @@ sealed interface PointForecast {
         val leadMinutes: Int,
     ) : PointForecast
 
-    /** 예측 가능 시간(외삽 한계)을 넘음 */
-    data class BeyondHorizon(val leadMinutes: Int) : PointForecast
+    /** 예측 가능 시간(외삽 한계)을 넘음. [observedNow]는 그 지점의 최신 관측 강수(참고용). */
+    data class BeyondHorizon(val leadMinutes: Int, val observedNow: RainLevel?) : PointForecast
 
     /** 레이더 영역 밖 */
     data object OutOfCoverage : PointForecast
@@ -31,7 +31,10 @@ class Nowcaster(
     fun forecast(lat: Double, lon: Double, atEpochSec: Long): PointForecast {
         val leadSec = (atEpochSec - latest.timeEpochSec).coerceAtLeast(0)
         val leadMin = (leadSec / 60).toInt()
-        if (leadMin > horizonMinutes) return PointForecast.BeyondHorizon(leadMin)
+        if (leadMin > horizonMinutes) {
+            val observed = latest.maxAround(latest.gridX(lon), latest.gridY(lat), BASE_RADIUS_PX)
+            return PointForecast.BeyondHorizon(leadMin, observed?.let(RainLevel::fromDbz))
+        }
 
         // t+lead에 (x,y)에 있을 비는 지금 (x - v·lead, y - v·lead)에 있다.
         val sx = latest.gridX(lon) - motion.vxPxPerSec * leadSec

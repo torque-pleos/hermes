@@ -149,7 +149,7 @@
 - [x] 개발 골격 + SDK 진단 화면 (Vehicle State · NaviHelper 연결 확인)
 
 - [ ] F1 운행 전 자동 점검 (Vehicle State)
-- [ ] F2 강수 레이더 엔진 (RainViewer 수집 + 이동 예측)
+- [x] F2 강수 레이더 엔진 (RainViewer 수집 + 이동 예측) — 진단 화면 연동, 예측 정확도 검증은 남음
 - [ ] F3 경유지 도착 시각 강수 타임라인 (NaviHelper)
 - [ ] F4 레이더 × 와이퍼 교차 검증 (에뮬레이터 시나리오)
 - [ ] F5 상하차 타이밍 추천 화면 (정차 시)

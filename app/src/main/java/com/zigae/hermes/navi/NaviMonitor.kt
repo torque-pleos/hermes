@@ -37,6 +37,18 @@ data class NaviSnapshot(
 class NaviMonitor(context: Context, private val scope: CoroutineScope) {
 
     private val navi = NaviHelper(context.applicationContext)
+
+    /**
+     * 에뮬레이터 NaviHelper는 WaypointInfo 좌표를 0.0으로 돌려준다(이름·남은 거리·시간은 정상).
+     * 앱이 직접 요청한 경유지는 요청 좌표를 이름으로 찾아 채운다.
+     */
+    private val requestedCoords = mutableMapOf<String, Pair<Double, Double>>()
+
+    private fun withKnownCoords(w: WaypointInfo): WaypointInfo {
+        if (w.latitude != 0.0 || w.longitude != 0.0) return w
+        val (lat, lon) = requestedCoords[w.name] ?: return w
+        return w.copy(latitude = lat, longitude = lon)
+    }
     private var pollJob: Job? = null
 
     private val _state = MutableStateFlow(NaviSnapshot())
@@ -52,12 +64,13 @@ class NaviMonitor(context: Context, private val scope: CoroutineScope) {
         }
 
         override fun onDestinationInfo(destinationInfo: DestinationInfo) {
+            if (destinationInfo != _state.value.destination) Log.i(TAG, "destination: $destinationInfo")
             _state.update { it.copy(destination = destinationInfo) }
         }
 
         override fun onWayPointInfo(waypointInfoList: List<WaypointInfo>) {
-            Log.i(TAG, "waypoints: $waypointInfoList")
-            _state.update { it.copy(waypoints = waypointInfoList) }
+            if (waypointInfoList.map(::withKnownCoords) != _state.value.waypoints) Log.i(TAG, "waypoints: $waypointInfoList")
+            _state.update { it.copy(waypoints = waypointInfoList.map(::withKnownCoords)) }
         }
 
         override fun onRoutingCompleted() = event("routing completed")
@@ -102,6 +115,7 @@ class NaviMonitor(context: Context, private val scope: CoroutineScope) {
             poiName = "대전 물류센터", waypointIndex = WaypointIndex.FIRST,
             poiId = "", address = "대전 서구", poiSubId = "",
         )
+        requestedCoords[waypoint.poiName.orEmpty()] = waypoint.latitude to waypoint.longitude
         runCatching { navi.requestRouteWithWaypoints(RouteWithWaypointsRequest(destination, listOf(waypoint))) }
             .onSuccess { event("test route requested") }
             .onFailure { t -> _state.update { it.copy(lastError = "route: ${t.message}") } }
