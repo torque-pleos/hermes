@@ -34,11 +34,15 @@ import com.zigae.hermes.radar.RoutePointRain
  * - 그다음 구간 요약 한 줄
  */
 @Composable
-fun DriveScreen(routeRain: List<RoutePointRain>, legs: List<LegRain>) {
+fun DriveScreen(routeRain: List<RoutePointRain>, legs: List<LegRain>, loading: Boolean) {
     Column(
         Modifier.fillMaxSize().background(Color(0xFF101418)).padding(48.dp),
         verticalArrangement = Arrangement.Center,
     ) {
+        if (loading) {
+            Text("강수 예보 불러오는 중", color = Color(0xFF9AA4AE), fontSize = 36.sp)
+            return@Column
+        }
         val next = legs.firstOrNull()
         if (next == null) {
             val here = routeRain.firstOrNull()?.forecast

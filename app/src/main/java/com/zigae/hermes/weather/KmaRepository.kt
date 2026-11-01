@@ -51,8 +51,7 @@ class KmaRepository(private val serviceKey: String) {
         val u = ultra[cell]?.hours.orEmpty()
         val s = short[cell]?.hours.orEmpty()
         if (u.isEmpty() && s.isEmpty()) return null
-        val ultraEnd = u.maxOfOrNull { it.startEpochSec } ?: Long.MIN_VALUE
-        return (u + s.filter { it.startEpochSec > ultraEnd }).sortedBy { it.startEpochSec }
+        return mergeKma(u, s)
     }
 
     suspend fun refresh(points: List<Pair<Double, Double>>) {

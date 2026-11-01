@@ -71,7 +71,7 @@ class MainActivity : ComponentActivity() {
 
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface {
-                    if (driving) DriveScreen(routeRain, legs) else DiagnosticsScreen(
+                    if (driving) DriveScreen(routeRain, legs, radarState.nowcaster == null && kmaState.updatedAtEpochSec == 0L) else DiagnosticsScreen(
                         vehicle = vehicle,
                         navi = navi,
                         radar = radarState,

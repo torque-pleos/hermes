@@ -131,6 +131,10 @@ private fun ColumnScope.RadarSection(
         radar.error?.let { Line("레이더 오류", it) }
     }
     Spacer(Modifier.height(8.dp))
+    if (cast == null && kma.updatedAtEpochSec == 0L) {
+        Line("예보", "불러오는 중")
+        return
+    }
     routeRain.forEach { (p, f) -> Line("${p.label} ${hhmm(p.etaEpochSec)}", describe(f)) }
 
     // 구간(직선 근사) 최악 강수

@@ -20,6 +20,15 @@ data class KmaHourly(
     val isSnow get() = pty == 3 || pty == 7 || pty == 2 || pty == 6
 }
 
+/**
+ * 초단기(6시간, 다음 정시부터)와 단기(약 3일) 예보를 합친다. 같은 시각은 초단기를 쓰고,
+ * 초단기에 없는 시각(현재 시각이 속한 시간, 6시간 이후)은 단기를 쓴다.
+ */
+fun mergeKma(ultra: List<KmaHourly>, short: List<KmaHourly>): List<KmaHourly> {
+    val ultraStarts = ultra.mapTo(HashSet()) { it.startEpochSec }
+    return (ultra + short.filter { it.startEpochSec !in ultraStarts }).sortedBy { it.startEpochSec }
+}
+
 /** 기상청 VilageFcstInfoService_2.0 응답(JSON) 해석 */
 object KmaParser {
     val KST: ZoneId = ZoneId.of("Asia/Seoul")

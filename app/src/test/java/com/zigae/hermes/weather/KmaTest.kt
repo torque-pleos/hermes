@@ -53,6 +53,18 @@ class KmaTest {
     }
 
     @Test
+    fun mergePrefersUltraButKeepsShortForUncoveredHours() {
+        val h = 3600L
+        val short = (21..30).map { KmaHourly(it * h, 1.0, 0, 40) } // 21시~익일 6시
+        val ultra = (23..28).map { KmaHourly(it * h, 5.0, 1, null) } // 23시~익일 4시
+        val merged = mergeKma(ultra, short)
+        assertEquals((21..30).map { it * h }, merged.map { it.startEpochSec })
+        assertEquals(1.0, merged.first { it.startEpochSec == 22 * h }.rateMmPerHour, 0.0) // 현재 시간대 = 단기
+        assertEquals(5.0, merged.first { it.startEpochSec == 23 * h }.rateMmPerHour, 0.0) // 겹치면 초단기
+        assertEquals(1.0, merged.first { it.startEpochSec == 29 * h }.rateMmPerHour, 0.0) // 6시간 이후 = 단기
+    }
+
+    @Test
     fun unregisteredKeyResponse() {
         // 실제 응답 (잘못된 키, HTTP 403) — 2026-11-01 확인
         val json = """{"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"errMsg":"SERVICE_KEY_IS_NOT_REGISTERED_ERROR","returnAuthMsg":"등록되지 않은 서비스키","returnReasonCode":"30"}}}"""
