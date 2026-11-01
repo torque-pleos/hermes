@@ -32,6 +32,7 @@ import java.util.Date
 import java.util.Locale
 import com.zigae.hermes.vehicle.VehicleSnapshot
 import com.zigae.hermes.vehicle.toRain
+import com.zigae.hermes.weather.KmaState
 
 /** 개발 단계 진단 화면: Hermes가 쓰는 SDK 값이 실제로 들어오는지 확인한다. */
 @Composable
@@ -39,6 +40,7 @@ fun DiagnosticsScreen(
     vehicle: VehicleSnapshot,
     navi: NaviSnapshot,
     radar: RadarState,
+    kma: KmaState,
     routeRain: List<RoutePointRain>,
     legs: List<LegRain>,
     onRequestTestRoute: () -> Unit,
@@ -77,8 +79,8 @@ fun DiagnosticsScreen(
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = onRequestTestRoute) { Text("테스트 경로 설정 (대전 경유 → 부산신항)", fontSize = 20.sp) }
             }
-            Panel("강수 레이더 (RainViewer)") {
-                RadarSection(radar, routeRain, legs, vehicle)
+            Panel("경로 강수 (레이더 + 기상청)") {
+                RadarSection(radar, kma, routeRain, legs, vehicle)
             }
         }
     }
@@ -97,27 +99,36 @@ private fun compass(deg: Double) = compass[((deg + 22.5) / 45).toInt() % 8]
 @Composable
 private fun ColumnScope.RadarSection(
     radar: RadarState,
+    kma: KmaState,
     routeRain: List<RoutePointRain>,
     legs: List<LegRain>,
     vehicle: VehicleSnapshot,
 ) {
+    val now = System.currentTimeMillis() / 1000
+    Line(
+        "기상청 예보",
+        when {
+            !kma.enabled -> "키 없음 → 레이더만 사용"
+            kma.updatedAtEpochSec == 0L -> "불러오는 중"
+            else -> "격자 ${kma.cells}개 · ${hhmm(kma.updatedAtEpochSec)} 확인" + (kma.error?.let { " · $it" } ?: "")
+        },
+    )
     val cast = radar.nowcaster
     if (cast == null) {
-        Line("상태", if (radar.loading) "불러오는 중" else (radar.error ?: "위치 대기 중"))
-        return
+        Line("레이더", if (radar.loading) "불러오는 중" else (radar.error ?: "위치 대기 중"))
+    } else {
+        val frame = cast.latest
+        Line("레이더 관측", "${hhmm(frame.timeEpochSec)} (${(now - frame.timeEpochSec) / 60}분 전)")
+        Line("레이더 영역", "${radar.range?.count ?: 0}타일 · 프레임 ${radar.framesUsed}개")
+        val m = cast.motion
+        val lat = routeRain.firstOrNull()?.point?.lat ?: 37.0
+        Line(
+            "비구름 이동",
+            if (m.confidence <= 0.0) "추정 불가 (에코 부족)"
+            else "${compass(m.headingDeg())}쪽 %.0fkm/h · 신뢰도 %.0f%%".format(m.speedKmh(lat, frame.zoom), m.confidence * 100),
+        )
+        radar.error?.let { Line("레이더 오류", it) }
     }
-    val now = System.currentTimeMillis() / 1000
-    val frame = cast.latest
-    Line("관측 시각", "${hhmm(frame.timeEpochSec)} (${(now - frame.timeEpochSec) / 60}분 전)")
-    Line("영역", "${radar.range?.count ?: 0}타일 · 프레임 ${radar.framesUsed}개")
-    val m = cast.motion
-    val lat = routeRain.firstOrNull()?.point?.lat ?: 37.0
-    Line(
-        "비구름 이동",
-        if (m.confidence <= 0.0) "추정 불가 (에코 부족)"
-        else "${compass(m.headingDeg())}쪽 %.0fkm/h · 신뢰도 %.0f%%".format(m.speedKmh(lat, frame.zoom), m.confidence * 100),
-    )
-    radar.error?.let { Line("오류", it) }
     Spacer(Modifier.height(8.dp))
     routeRain.forEach { (p, f) -> Line("${p.label} ${hhmm(p.etaEpochSec)}", describe(f)) }
 
@@ -147,6 +158,9 @@ private fun ColumnScope.RadarSection(
 private fun describe(f: PointForecast): String = when (f) {
     is PointForecast.Rain ->
         if (f.level == RainLevel.NONE) "비 없음" else "${f.level.label} %.1fmm/h (%.0fdBZ)".format(f.rateMmPerHour, f.dbz)
+    is PointForecast.Kma ->
+        "기상청 " + (if (f.level == RainLevel.NONE) "비 없음" else "${f.level.label}${if (f.snow) "(눈)" else ""} %.1fmm/h".format(f.rateMmPerHour)) +
+            (f.pop?.let { " · 확률 $it%" } ?: "")
     is PointForecast.BeyondHorizon ->
         "예측 범위 밖 (+${f.leadMinutes}분) · 지금 그곳: ${f.observedNow?.label ?: "레이더 영역 밖"}"
     PointForecast.OutOfCoverage -> "레이더 영역 밖"

@@ -68,7 +68,12 @@ enum class RainLevel(val label: String) {
 
         fun fromDbz(dbz: Float): RainLevel {
             if (dbz < MIN_RAIN_DBZ) return NONE
-            val rate = rainRateMmPerHour(dbz)
+            return fromRate(rainRateMmPerHour(dbz))
+        }
+
+        /** 시간당 강수량 기준. [pty]가 0이 아니면(강수형태 있음) 양이 아주 적어도 약한 비로 본다. */
+        fun fromRate(rate: Double, pty: Int = 0): RainLevel {
+            if (rate <= 0.0) return if (pty != 0) LIGHT else NONE
             return when {
                 rate < 3.0 -> LIGHT
                 rate < 15.0 -> MODERATE

@@ -4,19 +4,39 @@ import kotlin.math.roundToInt
 
 /** 한 지점·시각의 강수 예측 결과 */
 sealed interface PointForecast {
+    /** 비교용 강도. 알 수 없으면 null */
+    val rainLevel: RainLevel?
+
     data class Rain(
         val level: RainLevel,
         val dbz: Float,
         val rateMmPerHour: Double,
         /** 레이더 관측 시각으로부터의 외삽 시간(분) */
         val leadMinutes: Int,
-    ) : PointForecast
+    ) : PointForecast {
+        override val rainLevel get() = level
+    }
+
+    /** 기상청 초단기/단기예보 (해당 시각이 속한 1시간 칸) */
+    data class Kma(
+        val level: RainLevel,
+        val rateMmPerHour: Double,
+        val hourStartEpochSec: Long,
+        val pop: Int?,
+        val snow: Boolean,
+    ) : PointForecast {
+        override val rainLevel get() = level
+    }
 
     /** 예측 가능 시간(외삽 한계)을 넘음. [observedNow]는 그 지점의 최신 관측 강수(참고용). */
-    data class BeyondHorizon(val leadMinutes: Int, val observedNow: RainLevel?) : PointForecast
+    data class BeyondHorizon(val leadMinutes: Int, val observedNow: RainLevel?) : PointForecast {
+        override val rainLevel: RainLevel? get() = null
+    }
 
     /** 레이더 영역 밖 */
-    data object OutOfCoverage : PointForecast
+    data object OutOfCoverage : PointForecast {
+        override val rainLevel: RainLevel? get() = null
+    }
 }
 
 /**

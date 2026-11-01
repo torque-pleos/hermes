@@ -20,6 +20,9 @@ import com.zigae.hermes.radar.RoutePoint
 import com.zigae.hermes.radar.RouteRain
 import com.zigae.hermes.ui.DiagnosticsScreen
 import com.zigae.hermes.vehicle.VehicleMonitor
+import com.zigae.hermes.weather.BlendedForecaster
+import com.zigae.hermes.weather.KmaRepository
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
@@ -27,6 +30,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var vehicleMonitor: VehicleMonitor
     private lateinit var naviMonitor: NaviMonitor
     private lateinit var radar: RadarRepository
+    private val kma = KmaRepository(BuildConfig.KMA_SERVICE_KEY)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,18 +39,30 @@ class MainActivity : ComponentActivity() {
         radar = RadarRepository(lifecycleScope, pointsProvider = {
             routePoints(naviMonitor.state.value).map { it.lat to it.lon }
         }).also { it.start() }
+        // 기상청 예보: 경로 표본 격자를 1분마다 확인 (발표 시각이 바뀐 격자만 실제 호출)
+        lifecycleScope.launch {
+            while (true) {
+                val samples = RouteRain.allSamples(routePoints(naviMonitor.state.value))
+                if (samples.isNotEmpty()) kma.refresh(samples.map { it.lat to it.lon })
+                delay(if (samples.isEmpty()) 2_000 else 60_000)
+            }
+        }
 
         setContent {
             val vehicle by vehicleMonitor.state.collectAsStateWithLifecycle()
             val navi by naviMonitor.state.collectAsStateWithLifecycle()
             val radarState by radar.state.collectAsStateWithLifecycle()
+            val kmaState by kma.state.collectAsStateWithLifecycle()
             // 남은 시간 기반 ETA와 "n분 전" 표시를 갱신하기 위한 틱
             var tick by remember { mutableLongStateOf(0L) }
             LaunchedEffect(Unit) { while (true) { delay(30_000); tick++ } }
 
             val points = tick.let { routePoints(navi) }
-            val routeRain = radarState.nowcaster?.let { RouteRain.forecast(it, points) }.orEmpty()
-            val legs = radarState.nowcaster?.let { RouteRain.legs(it, points) }.orEmpty()
+            val forecaster = BlendedForecaster(
+                radarState.nowcaster, kma::hourly, System.currentTimeMillis() / 1000,
+            )
+            val routeRain = RouteRain.forecast(forecaster, points)
+            val legs = RouteRain.legs(forecaster, points)
 
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface {
@@ -54,6 +70,7 @@ class MainActivity : ComponentActivity() {
                         vehicle = vehicle,
                         navi = navi,
                         radar = radarState,
+                        kma = kmaState,
                         routeRain = routeRain,
                         legs = legs,
                         onRequestTestRoute = naviMonitor::requestTestRoute,

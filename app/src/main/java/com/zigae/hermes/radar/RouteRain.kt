@@ -27,12 +27,21 @@ data class LegRain(
     val beyondHorizon get() = samples.count { it.forecast is PointForecast.BeyondHorizon }
 }
 
+/** 지점·시각 → 예측. 레이더 단독, 또는 레이더+기상청 혼합 */
+fun interface PointForecaster {
+    fun forecast(point: RoutePoint): PointForecast
+}
+
+fun Nowcaster.asForecaster() = PointForecaster { forecast(it.lat, it.lon, it.etaEpochSec) }
+
 object RouteRain {
     /** 구간 표본 간격(직선 거리) */
     const val SAMPLE_SPACING_M = 15_000.0
 
-    fun forecast(nowcaster: Nowcaster, points: List<RoutePoint>): List<RoutePointRain> =
-        points.map { RoutePointRain(it, nowcaster.forecast(it.lat, it.lon, it.etaEpochSec)) }
+    fun forecast(forecaster: PointForecaster, points: List<RoutePoint>): List<RoutePointRain> =
+        points.map { RoutePointRain(it, forecaster.forecast(it)) }
+
+    fun forecast(nowcaster: Nowcaster, points: List<RoutePoint>) = forecast(nowcaster.asForecaster(), points)
 
     /**
      * 지점 사이를 직선(대권)으로 잇고 [SAMPLE_SPACING_M]마다 표본을 둔다. 표본 도착 시각은 구간 소요 시간을
@@ -54,13 +63,19 @@ object RouteRain {
             }
         }
 
-    fun legs(nowcaster: Nowcaster, points: List<RoutePoint>): List<LegRain> =
+    fun legs(forecaster: PointForecaster, points: List<RoutePoint>): List<LegRain> =
         samplePath(points).map { path ->
-            val samples = forecast(nowcaster, path)
+            val samples = forecast(forecaster, path)
             val worst = samples
-                .filter { it.forecast is PointForecast.Rain }
-                .maxWithOrNull(compareBy<RoutePointRain> { (it.forecast as PointForecast.Rain).level }
-                    .thenBy { (it.forecast as PointForecast.Rain).dbz })
+                .filter { it.forecast.rainLevel != null }
+                .maxWithOrNull(compareBy<RoutePointRain> { it.forecast.rainLevel }
+                    .thenBy { (it.forecast as? PointForecast.Rain)?.dbz ?: 0f })
             LegRain(path.first(), path.last(), worst, samples)
         }
+
+    fun legs(nowcaster: Nowcaster, points: List<RoutePoint>) = legs(nowcaster.asForecaster(), points)
+
+    /** 구간 표본을 포함한 모든 지점 (타일·격자 범위 계산용) */
+    fun allSamples(points: List<RoutePoint>): List<RoutePoint> =
+        if (points.size < 2) points else samplePath(points).flatten()
 }
