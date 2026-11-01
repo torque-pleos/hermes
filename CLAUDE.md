@@ -54,6 +54,27 @@ adb logcat -s Hermes/Vehicle Hermes/Navi Hermes/TTS
 | 경유지 남은 거리·시간 | ✅ `requestRouteWithWaypoints` 후 `WaypointInfo.remainDistance`(m), `remainTime`(초) 수신. 예: 대전 141,000m / 6,420s, 부산신항 398,000m / 17,100s |
 | Android 표준 TTS | ❌ 기본 엔진 미설정 + `ai.pleos.playground.caas` 지정 시에도 초기화 실패(code -1, "not bound to TTS engine") → 음성 안내 미사용 |
 | `VehicleException.errorCode` | 배포 AAR에서 난독화되어 참조 불가 → 예외 메시지만 사용 |
+| 주행 규제 | ✅ DO 미선언 시 기어 D·주행 중 "주행 중에는 사용할 수 없습니다"로 차단(프로세스는 계속 동작). `distractionOptimized` 선언 후 주행 중 표시됨 (`UXR: DO: true UxR: 80`) |
+| 주행 중 기어 | ✅ `GEAR_DRIVE` 수신 |
+| 주행 중 위치·남은 거리 | ❌ 재현 불가 — Virtual Console로 속도를 줘도 내비 위치가 움직이지 않음(남은 거리 고정) |
+| `RouteStateInfo.isRouting` | ⚠️ 내비가 실제로 안내 중인데도 `false` → 안내 여부 판단에 쓰지 말고 목적지/경유지 존재로 판단 |
+| 레이더 오프라인 | ✅ 실패 시 "네트워크 연결 없음 · 1분 후 다시 시도" 표시, 직전 예측 유지, 1분 간격 재시도, 복구 후 자동 재개 |
+| 레이더 장시간 (12분) | ✅ PSS 87~90MB 안정(갱신 순간 최대 107MB), 5분 주기 갱신으로 새 관측 프레임 반영 |
+| 레이더 첫 로딩 | ✅ 약 20초 (9~16타일 × 4프레임 병렬, 첫 로딩 요청 최대 65건 → 100 req/min 제한 이내. 이후 새 프레임마다 타일 수 + 1건) |
+| 예측 정확도 | ✅ [hindcast 보고서](docs/verification/hindcast-2026-11-01-1240Z.md): 모든 리드에서 이동벡터 외삽 > 지속성 (약한 비 30분 CSI 0.690 vs 0.665) |
+| 에뮬레이터 Wi-Fi | ⚠️ 비행기 모드 해제 후 자동 재연결 안 됨 → 설정 > 연결 > Wi-Fi에서 AndroidWifi 탭 (adb `cmd wifi connect-network`는 권한 없음) |
+
+### 검증하지 못한 항목
+
+| 항목 | 이유 | 확인 방법 |
+| --- | --- | --- |
+| 실차에서 경유지 좌표가 오는지 | 에뮬레이터는 0.0 반환 | 실차/다른 플랫폼 버전에서 `WaypointInfo` 로그 확인 |
+| 주행 중 남은 시간 갱신 → 예측 시각 이동 | 에뮬레이터 위치가 움직이지 않음 | 실차 주행 또는 내비 모의주행 기능 확인 |
+| 간헐 와이퍼 1~5단 | Virtual Console이 Off/Auto/Low/High만 제공 | 실차 |
+| 레이더 × 와이퍼 교차 검증(F4) 실효성 | 실제 비가 오는 위치에서 와이퍼를 켠 데이터가 필요 | 실차 우천 주행 또는 Virtual Console 와이퍼 + 비 오는 지역 좌표 시나리오 |
+| 예측 정확도 일반화 | RainViewer가 과거 2시간만 제공 → 이번 1개 기상 상황(층운형, 동진 약 60km/h)만 측정 | 날씨가 다른 날 hindcast 반복 실행해 보고서 누적 |
+| 실차 Android TTS | 에뮬레이터만 확인 | 실차 (단, 기획은 TTS 없이 확정) |
+| DO 앱 심사 통과 여부 | 심사 기준(주행 중 UI 단순화)을 아직 반영하지 않음 — 현재 화면은 개발용 진단 화면 | 주행 중 전용 UI 구현 후 심사 체크리스트 대조 |
 
 ## Virtual Console로 차량 값 바꾸기
 
