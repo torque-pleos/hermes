@@ -3,9 +3,7 @@ package com.zigae.hermes
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -27,6 +25,13 @@ import com.zigae.hermes.radar.RoutePoint
 import com.zigae.hermes.radar.RouteRain
 import com.zigae.hermes.ui.DiagnosticsScreen
 import com.zigae.hermes.ui.DriveScreen
+import com.zigae.hermes.ui.HomeScreen
+import com.zigae.hermes.ui.theme.HermesTheme
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import com.zigae.hermes.vehicle.DrivingState
 import com.zigae.hermes.vehicle.VehicleMonitor
 import com.zigae.hermes.vehicle.VehicleSnapshot
@@ -86,7 +91,8 @@ class MainActivity : ComponentActivity() {
             while (true) {
                 val samples = RouteRain.allSamples(routePoints(naviMonitor.state.value))
                 if (samples.isNotEmpty()) kma.refresh(samples.map { it.lat to it.lon })
-                delay(if (samples.isEmpty()) 2_000 else 60_000)
+                // 새 격자·발표 시각이 바뀐 격자만 실제 호출하므로 자주 확인해도 비용이 거의 없다
+                delay(if (samples.isEmpty()) 2_000 else 10_000)
             }
         }
 
@@ -113,9 +119,27 @@ class MainActivity : ComponentActivity() {
             val routeRain = RouteRain.forecast(forecaster, points)
             val legs = RouteRain.legs(forecaster, points)
 
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            var showDiagnostics by remember { mutableStateOf(false) }
+            // 개발·발표용: 주차 중에도 주행 화면을 확인 (실제 주행 중에는 규제 상태로 자동 전환)
+            var previewDrive by remember { mutableStateOf(false) }
+            HermesTheme {
                 Surface {
-                    if (driving) DriveScreen(routeRain, legs, radarState.nowcaster == null && kmaState.updatedAtEpochSec == 0L) else DiagnosticsScreen(
+                    if (driving || previewDrive) Box(Modifier.fillMaxSize().clickable(enabled = previewDrive && !driving) { previewDrive = false }) {
+                        DriveScreen(routeRain, legs, radarState.nowcaster == null && kmaState.updatedAtEpochSec == 0L)
+                    }
+                    else if (!showDiagnostics) HomeScreen(
+                        routeRain = routeRain,
+                        legs = legs,
+                        radar = radarState,
+                        kma = kmaState,
+                        fleet = fleetState,
+                        vehicle = vehicle,
+                        onToggleConsent = { fleet.setConsent(!fleetState.consent) },
+                        onSeedDemo = { lifecycleScope.launch { seedDemo(points, nowcaster) } },
+                        onRequestTestRoute = naviMonitor::requestTestRoute,
+                        onOpenDiagnostics = { showDiagnostics = true },
+                    )
+                    else DiagnosticsScreen(
                         vehicle = vehicle,
                         navi = navi,
                         radar = radarState,
@@ -126,6 +150,8 @@ class MainActivity : ComponentActivity() {
                         onRequestTestRoute = naviMonitor::requestTestRoute,
                         onToggleConsent = { fleet.setConsent(!fleetState.consent) },
                         onSeedDemo = { lifecycleScope.launch { seedDemo(points, nowcaster) } },
+                        onClose = { showDiagnostics = false },
+                        onPreviewDrive = { previewDrive = true },
                     )
                 }
             }

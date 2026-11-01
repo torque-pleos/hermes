@@ -38,6 +38,7 @@ class KmaRepository(private val serviceKey: String) {
     private val ultra = ConcurrentHashMap<KmaCell, Cached>()
     private val short = ConcurrentHashMap<KmaCell, Cached>()
     private val mutex = Mutex()
+    private var lastLoggedCells = -1
     /** (작업, 격자) → 다시 시도할 수 있는 시각. 실패한 격자를 매분 다시 부르지 않기 위함 */
     private val retryAfter = ConcurrentHashMap<Pair<String, KmaCell>, Long>()
     private val io = Dispatchers.IO.limitedParallelism(PARALLEL)
@@ -91,7 +92,8 @@ class KmaRepository(private val serviceKey: String) {
                 // 이번 회차에 시도하지 않은(재시도 대기) 격자의 이전 오류는 유지
                 error = errors.distinct().firstOrNull() ?: _state.value.error.takeIf { retryAfter.isNotEmpty() },
             )
-            Log.i(TAG, "kma cells=${cells.size} errors=${errors.size}")
+            if (errors.isNotEmpty() || cells.size != lastLoggedCells) Log.i(TAG, "kma cells=${cells.size} errors=${errors.size}")
+            lastLoggedCells = cells.size
         }
     }
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -48,9 +49,16 @@ fun DiagnosticsScreen(
     onRequestTestRoute: () -> Unit,
     onToggleConsent: () -> Unit,
     onSeedDemo: () -> Unit,
+    onClose: () -> Unit,
+    onPreviewDrive: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().padding(32.dp)) {
-        Text("Hermes · SDK 진단", fontSize = 36.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("Hermes · SDK 진단", fontSize = 36.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Button(onClick = onPreviewDrive) { Text("주행 화면 미리보기", fontSize = 20.sp) }
+            Spacer(Modifier.width(12.dp))
+            Button(onClick = onClose) { Text("← 운행 브리핑", fontSize = 20.sp) }
+        }
         Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             Panel("차량 (Vehicle State)") {
