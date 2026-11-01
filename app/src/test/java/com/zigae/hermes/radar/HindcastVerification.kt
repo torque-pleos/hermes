@@ -47,39 +47,60 @@ class HindcastVerification {
         out("- 강수 에코(≥15dBZ) 면적 비율: 평균 %.1f%% (최소 %.1f%%, 최대 %.1f%%)".format(echoShare.average(), echoShare.min(), echoShare.max()))
         out("- 평가 지점: 8px(≈8km) 간격 격자, 사건 = 해당 강도 이상")
         out("- 지표: CSI = 적중/(적중+놓침+오경보), POD = 적중/(적중+놓침), FAR = 오경보/(적중+오경보)")
+        out("- 구성: P = 지속성(정지 가정), G = 전역 이동 벡터, F = 128px 블록 벡터장 / r = 탐색 반경 px (+/N = 외삽 N분마다 1px 증가)")
         out("")
 
+        // 비교 구성: 이동(전역 G / 벡터장 F / 지속성 P) × 탐색 반경(기본 + 외삽분/증가)
+        data class Config(val name: String, val motion: Char, val base: Int, val growth: Int)
+        val configs = listOf(
+            Config("P r2+/15 (지속성)", 'P', 2, 15),
+            Config("G r2+/15 (기존)", 'G', 2, 15),
+            Config("G r0", 'G', 0, 0),
+            Config("G r1+/30", 'G', 1, 30),
+            Config("G r2", 'G', 2, 0),
+            Config("F r2+/15", 'F', 2, 15),
+            Config("F r1+/30", 'F', 1, 30),
+            Config("F r0", 'F', 0, 0),
+        )
+        val leads = listOf(1, 3, 6, 9)
+        // 기준 시각별 이동 추정은 한 번만
+        val motions = (3 until frames.size).associateWith { i ->
+            val history = frames.subList(i - 3, i + 1)
+            val g = MotionEstimator.estimate(history)
+            g to MotionEstimator.estimateField(history, g)
+        }
         for (threshold in listOf(RainLevel.LIGHT, RainLevel.MODERATE)) {
-            out("## 사건: ${threshold.label} 이상")
+            out("## 사건: ${threshold.label} 이상 — CSI (POD / FAR)")
             out("")
-            out("| 리드 | 사례 | 이동벡터 CSI | 지속성 CSI | 이동벡터 POD | 이동벡터 FAR | 지속성 POD | 지속성 FAR | 관측 사건 수 |")
-            out("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
-            for (k in 1..9) {
-                val adv = Score()
-                val per = Score()
-                var cases = 0
-                for (i in 3 until frames.size - k) {
-                    val history = frames.subList(i - 3, i + 1)
-                    val motion = MotionEstimator.estimate(history)
-                    val base = frames[i]
-                    val truth = frames[i + k]
-                    val castAdv = Nowcaster(base, motion)
-                    val castPer = Nowcaster(base, Motion.NONE)
-                    cases++
-                    for (gy in 16 until base.height - 16 step 8) for (gx in 16 until base.width - 16 step 8) {
-                        val lat = WebMercator.lat((base.originY + gy).toDouble(), base.zoom)
-                        val lon = WebMercator.lon((base.originX + gx).toDouble(), base.zoom)
-                        val observed = RainLevel.fromDbz(truth[gx, gy]) >= threshold
-                        adv.add(levelOf(castAdv.forecast(lat, lon, truth.timeEpochSec)) >= threshold, observed)
-                        per.add(levelOf(castPer.forecast(lat, lon, truth.timeEpochSec)) >= threshold, observed)
+            out("| 구성 | " + leads.joinToString(" | ") { "${it * 10}분" } + " |")
+            out("| --- |" + leads.joinToString("") { " --- |" })
+            for (c in configs) {
+                val cells = leads.map { k ->
+                    val sc = Score()
+                    for (i in 3 until frames.size - k) {
+                        val (g, field) = motions.getValue(i)
+                        val base = frames[i]
+                        val truth = frames[i + k]
+                        val cast = when (c.motion) {
+                            'P' -> Nowcaster(base, Motion.NONE, baseRadiusPx = c.base, growthMinPerPx = c.growth)
+                            'F' -> Nowcaster(base, g, field = field, baseRadiusPx = c.base, growthMinPerPx = c.growth)
+                            else -> Nowcaster(base, g, baseRadiusPx = c.base, growthMinPerPx = c.growth)
+                        }
+                        for (gy in 16 until base.height - 16 step 8) for (gx in 16 until base.width - 16 step 8) {
+                            val lat = WebMercator.lat((base.originY + gy).toDouble(), base.zoom)
+                            val lon = WebMercator.lon((base.originX + gx).toDouble(), base.zoom)
+                            val observed = RainLevel.fromDbz(truth[gx, gy]) >= threshold
+                            sc.add(levelOf(cast.forecast(lat, lon, truth.timeEpochSec)) >= threshold, observed)
+                        }
                     }
+                    "%.3f (%.2f / %.2f)".format(sc.csi, sc.pod, sc.far)
                 }
-                if (cases == 0) continue
-                out("| ${k * 10}분 | $cases | %.3f | %.3f | %.3f | %.3f | %.3f | %.3f | ${adv.hit + adv.miss} |".format(
-                    adv.csi, per.csi, adv.pod, adv.far, per.pod, per.far))
+                out("| ${c.name} | " + cells.joinToString(" | ") + " |")
             }
             out("")
         }
+        out("사례 수: 10분 ${frames.size - 4}개, 30분 ${frames.size - 6}개, 60분 ${frames.size - 9}개, 90분 ${frames.size - 12}개")
+        out("")
 
         out("## 추정 이동 벡터 (직전 4프레임 기준)")
         out("")
@@ -92,6 +113,7 @@ class HindcastVerification {
 
         File("build/reports").mkdirs()
         File("build/reports/hindcast.md").writeText(report.toString())
+        File("build/reports/hindcast-${frames.last().timeEpochSec}.md").writeText(report.toString())
     }
 
     private fun levelOf(f: PointForecast): RainLevel = when (f) {

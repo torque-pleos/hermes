@@ -214,3 +214,31 @@ class RouteTilesTest {
         assertEquals(5.0 / 600, m.vxPxPerSec, 1e-6)
     }
 }
+
+class MotionFieldTest {
+    @Test
+    fun fieldSeparatesOpposingCells() {
+        // 왼쪽 비구름은 동쪽으로, 오른쪽 비구름은 서쪽으로 이동
+        val w = 512; val h = 256
+        fun frame(t: Long, i: Int): RadarFrame {
+            val v = FloatArray(w * h) { RadarFrame.NO_ECHO }
+            fun blob(cx: Int, cy: Int) {
+                for (y in 0 until h) for (x in 0 until w) {
+                    val d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy)
+                    if (d2 <= 28 * 28) v[y * w + x] = 44f - d2 / 40f
+                    if (x - cx in -50..-30 && abs(y - cy) <= 4) v[y * w + x] = 25f
+                }
+            }
+            blob(90 + 4 * i, 128)
+            blob(420 - 4 * i, 128)
+            return RadarFrame(t, 7, 0, 0, w, h, v)
+        }
+        val frames = (0..3).map { frame(600L * it, it) }
+        val global = MotionEstimator.estimate(frames)
+        val field = MotionEstimator.estimateField(frames, global.copy(confidence = maxOf(global.confidence, 0.5)))!!
+        val (leftVx, _) = field.at(90.0, 128.0)
+        val (rightVx, _) = field.at(420.0, 128.0)
+        assertTrue("left=$leftVx", leftVx > 0)
+        assertTrue("right=$rightVx", rightVx < 0)
+    }
+}

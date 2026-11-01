@@ -125,7 +125,8 @@ private fun ColumnScope.RadarSection(
         Line(
             "비구름 이동",
             if (m.confidence <= 0.0) "추정 불가 (에코 부족)"
-            else "${compass(m.headingDeg())}쪽 %.0fkm/h · 신뢰도 %.0f%%".format(m.speedKmh(lat, frame.zoom), m.confidence * 100),
+            else "${compass(m.headingDeg())}쪽 %.0fkm/h · 신뢰도 %.0f%%".format(m.speedKmh(lat, frame.zoom), m.confidence * 100) +
+                if (cast.field != null) " · 지역별 보정" else "",
         )
         radar.error?.let { Line("레이더 오류", it) }
     }

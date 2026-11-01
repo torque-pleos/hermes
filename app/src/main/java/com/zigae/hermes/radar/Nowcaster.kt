@@ -47,6 +47,11 @@ class Nowcaster(
     val latest: RadarFrame,
     val motion: Motion,
     private val horizonMinutes: Int = DEFAULT_HORIZON_MIN,
+    /** 블록별 이동 벡터장. null이면 전역 벡터 [motion]만 쓴다 */
+    val field: MotionField? = null,
+    /** 탐색 반경 = base + 외삽분/growthMinPerPx (growth 0이면 증가 없음) */
+    private val baseRadiusPx: Int = BASE_RADIUS_PX,
+    private val growthMinPerPx: Int = RADIUS_GROWTH_MIN_PER_PX,
 ) {
     fun forecast(lat: Double, lon: Double, atEpochSec: Long): PointForecast {
         val leadSec = (atEpochSec - latest.timeEpochSec).coerceAtLeast(0)
@@ -57,16 +62,31 @@ class Nowcaster(
         }
 
         // t+lead에 (x,y)에 있을 비는 지금 (x - v·lead, y - v·lead)에 있다.
-        val sx = latest.gridX(lon) - motion.vxPxPerSec * leadSec
-        val sy = latest.gridY(lat) - motion.vyPxPerSec * leadSec
+        var sx = latest.gridX(lon)
+        var sy = latest.gridY(lat)
+        if (field == null) {
+            sx -= motion.vxPxPerSec * leadSec
+            sy -= motion.vyPxPerSec * leadSec
+        } else {
+            // 벡터장을 따라 거슬러 올라간다(semi-Lagrangian 역추적, 10분 단위)
+            var remain = leadSec.toDouble()
+            while (remain > 0) {
+                val step = minOf(remain, 600.0)
+                val (vx, vy) = field.at(sx, sy)
+                sx -= vx * step
+                sy -= vy * step
+                remain -= step
+            }
+        }
         // 외삽 시간이 길수록 위치 불확실성이 커지므로 탐색 반경을 넓힌다.
-        val radius = BASE_RADIUS_PX + (leadMin / 15.0).roundToInt()
+        val radius = baseRadiusPx + if (growthMinPerPx > 0) (leadMin.toDouble() / growthMinPerPx).roundToInt() else 0
         val dbz = latest.maxAround(sx, sy, radius) ?: return PointForecast.OutOfCoverage
         return PointForecast.Rain(RainLevel.fromDbz(dbz), dbz, RainLevel.rainRateMmPerHour(dbz), leadMin)
     }
 
     companion object {
         const val DEFAULT_HORIZON_MIN = 90
-        private const val BASE_RADIUS_PX = 2
+        const val BASE_RADIUS_PX = 2
+        const val RADIUS_GROWTH_MIN_PER_PX = 15
     }
 }

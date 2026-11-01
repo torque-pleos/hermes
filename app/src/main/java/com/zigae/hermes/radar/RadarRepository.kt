@@ -125,9 +125,11 @@ class RadarRepository(
             }
             frames to MotionEstimator.estimate(frames)
         }
+        // 블록별 벡터장 (hindcast상 같은 반경의 전역 벡터 대비 CSI 동등 이상)
+        val field = withContext(Dispatchers.Default) { MotionEstimator.estimateField(frames, motion) }
         RadarState(
             loading = false,
-            nowcaster = Nowcaster(frames.last(), motion),
+            nowcaster = Nowcaster(frames.last(), motion, field = field),
             range = range,
             tileCount = tiles.size,
             framesUsed = frames.size,
