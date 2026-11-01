@@ -21,7 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zigae.hermes.navi.NaviSnapshot
+import com.zigae.hermes.radar.LegRain
 import com.zigae.hermes.radar.PointForecast
+import com.zigae.hermes.radar.RouteRain
 import com.zigae.hermes.radar.RadarState
 import com.zigae.hermes.radar.RainLevel
 import com.zigae.hermes.radar.RoutePointRain
@@ -38,6 +40,7 @@ fun DiagnosticsScreen(
     navi: NaviSnapshot,
     radar: RadarState,
     routeRain: List<RoutePointRain>,
+    legs: List<LegRain>,
     onRequestTestRoute: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().padding(32.dp)) {
@@ -75,7 +78,7 @@ fun DiagnosticsScreen(
                 Button(onClick = onRequestTestRoute) { Text("테스트 경로 설정 (대전 경유 → 부산신항)", fontSize = 20.sp) }
             }
             Panel("강수 레이더 (RainViewer)") {
-                RadarSection(radar, routeRain, vehicle)
+                RadarSection(radar, routeRain, legs, vehicle)
             }
         }
     }
@@ -92,7 +95,12 @@ private val compass = listOf("북", "북동", "동", "남동", "남", "남서", 
 private fun compass(deg: Double) = compass[((deg + 22.5) / 45).toInt() % 8]
 
 @Composable
-private fun ColumnScope.RadarSection(radar: RadarState, routeRain: List<RoutePointRain>, vehicle: VehicleSnapshot) {
+private fun ColumnScope.RadarSection(
+    radar: RadarState,
+    routeRain: List<RoutePointRain>,
+    legs: List<LegRain>,
+    vehicle: VehicleSnapshot,
+) {
     val cast = radar.nowcaster
     if (cast == null) {
         Line("상태", if (radar.loading) "불러오는 중" else (radar.error ?: "위치 대기 중"))
@@ -112,6 +120,23 @@ private fun ColumnScope.RadarSection(radar: RadarState, routeRain: List<RoutePoi
     radar.error?.let { Line("오류", it) }
     Spacer(Modifier.height(8.dp))
     routeRain.forEach { (p, f) -> Line("${p.label} ${hhmm(p.etaEpochSec)}", describe(f)) }
+
+    // 구간(직선 근사) 최악 강수
+    if (legs.isNotEmpty()) {
+        Spacer(Modifier.height(8.dp))
+        Text("구간 (직선 근사, ${(RouteRain.SAMPLE_SPACING_M / 1000).toInt()}km 간격)", fontWeight = FontWeight.Bold)
+    }
+    legs.forEach { leg ->
+        val worst = leg.worst
+        val head = "${leg.from.label.substringBefore(' ')}→${leg.to.label.substringBefore(' ')} " +
+            "${hhmm(leg.from.etaEpochSec)}~${hhmm(leg.to.etaEpochSec)}"
+        val body = buildString {
+            if (worst == null) append("예측 가능 구간 없음")
+            else append("최대 ${describe(worst.forecast)} · ${hhmm(worst.point.etaEpochSec)} 부근")
+            if (leg.beyondHorizon > 0) append(" · 예측 범위 밖 ${leg.beyondHorizon}/${leg.samples.size}")
+        }
+        Line(head, body)
+    }
 
     // F4 미리보기: 현재 위치 레이더 vs 와이퍼
     val here = routeRain.firstOrNull()?.forecast as? PointForecast.Rain

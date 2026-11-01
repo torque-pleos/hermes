@@ -136,3 +136,36 @@ class RadarMosaicTest {
         assertEquals(109 * 256, frame.originX)
     }
 }
+
+class RouteRainTest {
+    @Test
+    fun samplesLegsWithInterpolatedEta() {
+        val a = RoutePoint("현재", 37.41, 127.09, 0)
+        val b = RoutePoint("대전", 36.356, 127.391, 6000) // 직선 ≈120km
+        val legs = RouteRain.samplePath(listOf(a, b))
+        assertEquals(1, legs.size)
+        val path = legs[0]
+        assertEquals(10, path.size) // ceil(120/15)=8 → 9..10개 표본
+        assertEquals(0L, path.first().etaEpochSec)
+        assertEquals(6000L, path.last().etaEpochSec)
+        assertTrue(path.zipWithNext().all { (p, q) -> q.etaEpochSec > p.etaEpochSec })
+    }
+
+    @Test
+    fun legWorstPicksStrongestRainOnTheWay() {
+        // 격자 중앙에 강한 비, 두 지점은 비 없는 양 끝 → 구간 최악은 중간 표본
+        val w = 400; val h = 64
+        val v = FloatArray(w * h) { RadarFrame.NO_ECHO }
+        for (y in 0 until h) for (x in 190..210) v[y * w + x] = 45f
+        val frame = RadarFrame(0, 7, 109 * 256, 49 * 256, w, h, v)
+        fun pt(label: String, gx: Int) = RoutePoint(
+            label,
+            WebMercator.lat((frame.originY + 32).toDouble(), 7),
+            WebMercator.lon((frame.originX + gx).toDouble(), 7), 0,
+        )
+        val leg = RouteRain.legs(Nowcaster(frame, Motion.NONE), listOf(pt("A", 20), pt("B", 380))).single()
+        val worst = leg.worst!!.forecast as PointForecast.Rain
+        assertEquals(RainLevel.HEAVY, worst.level)
+        assertEquals("A→B", leg.worst!!.point.label)
+    }
+}

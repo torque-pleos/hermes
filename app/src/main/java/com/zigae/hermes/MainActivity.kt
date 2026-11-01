@@ -44,9 +44,9 @@ class MainActivity : ComponentActivity() {
             var tick by remember { mutableLongStateOf(0L) }
             LaunchedEffect(Unit) { while (true) { delay(30_000); tick++ } }
 
-            val routeRain = radarState.nowcaster?.let { cast ->
-                tick.let { RouteRain.forecast(cast, routePoints(navi)) }
-            }.orEmpty()
+            val points = tick.let { routePoints(navi) }
+            val routeRain = radarState.nowcaster?.let { RouteRain.forecast(it, points) }.orEmpty()
+            val legs = radarState.nowcaster?.let { RouteRain.legs(it, points) }.orEmpty()
 
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface {
@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
                         navi = navi,
                         radar = radarState,
                         routeRain = routeRain,
+                        legs = legs,
                         onRequestTestRoute = naviMonitor::requestTestRoute,
                     )
                 }
