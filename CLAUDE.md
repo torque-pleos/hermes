@@ -14,7 +14,7 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17
 ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell am start -S -n com.zigae.hermes/.MainActivity
-adb logcat -s Hermes/Vehicle Hermes/Navi Hermes/TTS
+adb logcat -s Hermes/Vehicle Hermes/Navi Hermes/Radar Hermes/KMA Hermes/Fleet
 ```
 
 - 에뮬레이터는 반드시 `-no-audio`로 실행 ([docs/pleos/emulator-setup.md](docs/pleos/emulator-setup.md)).
@@ -22,6 +22,7 @@ adb logcat -s Hermes/Vehicle Hermes/Navi Hermes/TTS
 - 기상청 키: `secrets.properties.example` → `secrets.properties`로 복사해 `KMA_SERVICE_KEY` 입력(커밋 금지). 없으면 레이더만 사용.
   공공데이터포털 개발계정(기상청_단기예보 조회서비스, 2026-11-01 승인, 24개월, 기능별 일 10,000건). 새 포털은 일반 인증키 하나(64자 hex)만 제공.
   이용허락범위가 **저작자표시**이므로 화면·제출 자료에 출처 "기상청"을 표기한다.
+- 차량 간 공유 서버: `secrets.properties`의 `FLEET_URL`·`FLEET_KEY`(publishable 키), `SUPABASE_DB_PASSWORD`(CLI `db push`용). 없으면 공유 기능 꺼짐.
 - 구성: AGP 8.13.2 · Gradle 8.14.3 · Kotlin 2.2.21 · Compose · compileSdk 36 / targetSdk 34 / minSdk 28.
 
 ## 구조
@@ -34,6 +35,8 @@ adb logcat -s Hermes/Vehicle Hermes/Navi Hermes/TTS
 | `app/.../radar/` | F2 강수 레이더 엔진. `WebMercator`·`RadarFrame`·`MotionEstimator`(전역 벡터 + 블록 벡터장)·`Nowcaster`·`RadarMosaic`(`RouteTiles`)·`RouteRain`(구간 표본)은 순수 Kotlin(JVM 단위 테스트), `RainViewerClient`·`RadarRepository`가 안드로이드 연동 |
 | `app/.../weather/` | 기상청 초단기·단기예보: `KmaGrid`(격자 변환)·`KmaForecast`(파서·발표시각)·`BlendedForecaster`(60분 이내 레이더, 이후 기상청)·`KmaRepository`(격자 캐시·재시도 제한) |
 | `app/.../geo/` | `GeoMath`(거리·대권 보간), `CandidatePicker`(남은 거리로 지오코딩 후보 선택), `WaypointLocator`(Nominatim 지오코딩 + 기기 저장) |
+| `app/.../fleet/` | 차량 간 와이퍼 공유: `FleetFusion`(주변 관측을 비구름 이동으로 도착 시각까지 옮겨 합산, 순수 Kotlin) · `FleetForecaster`(레이더+기상청 예측 위에 덧입힘) · `FleetRepository`(Supabase REST 업로드·조회·시연 RPC, 동의·익명 ID) |
+| `supabase/` | Supabase 프로젝트 `hermes`(ref `kayyybsxqnvbsimbearq`, 서울, 개인 조직 zigae) 설정과 스키마(`migrations/0001_wiper_reports.sql`). 적용: `supabase link --project-ref kayyybsxqnvbsimbearq` → `supabase db push` |
 | `app/.../vehicle/DrivingState.kt` | `CarUxRestrictionsManager`로 주행 중(DO 필요) 판단 |
 | `app/.../ui/DriveScreen.kt` | 주행 중 화면: 다음 정차지·도착 시각, 가는 길 최대 강수(색 블록)·시각, 이후 구간 한 줄 |
 | `app/.../ui/DiagnosticsScreen.kt` | 개발용 진단 화면 (차량 · 내비 · 강수 레이더) |
@@ -54,6 +57,15 @@ adb logcat -s Hermes/Vehicle Hermes/Navi Hermes/TTS
 10. 구간: NaviHelper가 경로 좌표열을 주지 않아 현재 위치→경유지→목적지를 대권으로 잇고 15km 간격 표본, 도착 시각은 거리 비율로 보간(직선 근사)
 
 ⚠️ RainViewer 타일은 **색상표 파라미터와 무관하게 항상 Universal Blue**로 온다(색상표 0·2 응답이 바이트 단위로 동일, 2026-11-01 확인). `RainViewerPalette`가 공식 색상표 CSV로 색 → dBZ를 역변환한다. 흑백(dBZ) 색상표를 가정하면 값이 전부 틀린다.
+
+## 차량 간 와이퍼 공유 (F4 확장)
+
+1. 공유 동의한 차량만 1분마다 + 와이퍼 단계 변경 시 관측 업로드: 무작위 차량 ID, 좌표 약 500m 반올림, 와이퍼→강도(AUTO는 올리지 않음)
+2. 경로 표본 범위 ±0.5°의 최근 20분 관측 조회. 내 차는 서버를 거치지 않고 로컬 관측을 바로 쓴다
+3. 관측 위치를 비구름 이동 속도(레이더 벡터장)로 도착 시각까지 옮겨 반경 8km 안이면 근거로 센다(지금부터 60분 이내 지점만, 차량별 최신 1건)
+4. 비를 본 차량 ≥2 → 예보와 "두 번째로 강한 차량 관측" 중 큰 값 / 맑음 ≥3·비 0·예보 약한 비 이하 → 비 없음
+5. RLS: anon은 지금 시각(±2분)의 실제 관측만 삽입, 최근 30분만 조회, 수정·삭제 불가. 시연 데이터는 `seed_demo_fleet` RPC로만(최대 20대, 10분 지난 시연 데이터 자동 정리)
+6. 시연 버튼: 경로상 20~40분 뒤 지날 표본의 상류(비구름이 오는 쪽)에 강한 비를 보는 가상 차량 5대 생성
 
 ## 에뮬레이터 검증 결과 (2026-11-01)
 
@@ -86,6 +98,9 @@ adb logcat -s Hermes/Vehicle Hermes/Navi Hermes/TTS
 | 기상청 응답 특이사항 | 초단기예보에도 POP(강수확률)가 포함됨. 초단기는 다음 정시부터 6시간이라 현재 시각이 속한 시간은 단기예보로 채움(`mergeKma`) |
 | 주행 화면 전환 | ✅ 기어 D·주행 → `requiresDO=true`(UxR 80) → 운행 화면, 정차·P → 진단 화면 |
 | 예측 방식 비교 | ✅ [8개 구성 hindcast](docs/verification/hindcast-2026-11-01-1330Z-configs.md): 벡터장 ≥ 전역, 반경은 CSI↔POD 교환 → F r2+/15 채택 |
+| 차량 공유 서버 | ✅ 실제 관측 삽입 201, 시연 플래그·과거 시각 삽입은 RLS 거부(42501), 삭제 0건, 시연 RPC 정상 |
+| 차량 공유 앱 | ✅ 동의 후 1분 주기 업로드(14:23:51, 14:24:51, 좌표 37.415/127.095로 반올림), 주변 관측 조회, 시연 버튼 → 서울→대전 구간 "차량 보정 강한 비 ← 비 없음 · 주변 차량 3대(비 3) · 22분 뒤" |
+| 2번째 Pleos 에뮬레이터 동시 실행 | ⚠️ 다른 작업이 `emulator-5556`을 띄우자 `emulator-5554`의 Virtual Console이 `emulator_inactive`(와이퍼·기어 변경 불가). adb는 `ANDROID_SERIAL=emulator-5554`로 지정 |
 | 에뮬레이터 Wi-Fi | ⚠️ 비행기 모드 해제 후 자동 재연결 안 됨 → 설정 > 연결 > Wi-Fi에서 AndroidWifi 탭 (adb `cmd wifi connect-network`는 권한 없음) |
 
 ### 검증하지 못한 항목
@@ -95,12 +110,13 @@ adb logcat -s Hermes/Vehicle Hermes/Navi Hermes/TTS
 | 실차에서 경유지 좌표가 오는지 | 에뮬레이터는 0.0 반환 | 실차/다른 플랫폼 버전에서 `WaypointInfo` 로그 확인 |
 | 주행 중 남은 시간 갱신 → 예측 시각 이동 | 에뮬레이터 위치가 움직이지 않음 | 실차 주행 또는 내비 모의주행 기능 확인 |
 | 간헐 와이퍼 1~5단 | Virtual Console이 Off/Auto/Low/High만 제공 | 실차 |
-| 레이더 × 와이퍼 교차 검증(F4) 실효성 | 실제 비가 오는 위치에서 와이퍼를 켠 데이터가 필요 | 실차 우천 주행 또는 Virtual Console 와이퍼 + 비 오는 지역 좌표 시나리오 |
 | 예측 정확도 일반화 | RainViewer가 과거 2시간만 제공 → 2회 실행 모두 같은 기상 상황(층운형, 동진 약 60km/h). 구성 간 차이 0.01 수준은 유의하지 않음 | 날씨가 다른 날 hindcast 반복 실행해 보고서 누적 |
 | 기상청 예보 정확도 | 예보값을 받아 표시하는 것까지만 확인. 예보가 실제 강수와 맞았는지는 비교하지 않음(기상청 공식 예보라 공모전 범위에서는 검증 대상 아님) | — |
 | 구간 직선 근사의 오차 | 실제 도로 좌표를 얻을 방법이 없음 | 실차 주행 로그(현재 위치 이력)와 직선 표본 비교 |
 | 지오코딩 일반화 | 에뮬레이터 경유지 1건("서구 둔산동")만 확인. 동명 주소가 남은 거리로도 구분 안 되는 경우 가능 | 실차에서 다양한 경유지로 확인. 상용은 VWorld/카카오 로컬 API로 교체 |
 | 실차 Android TTS | 에뮬레이터만 확인 | 실차 (단, 기획은 TTS 없이 확정) |
+| 와이퍼 변경 즉시 업로드, 주행 화면의 "주변 차량 N대가 비 관측" 표시 | 두 번째 에뮬레이터 때문에 Virtual Console 비활성(와이퍼·기어 변경 불가) | 다른 에뮬레이터 종료 후 Virtual Console로 와이퍼 High·기어 D |
+| 차량 공유 판단 규칙의 실효성 | 실제 여러 차량 데이터 없음(시연은 가상 차량) | 공모전 범위에서는 규칙·시연으로 설명 |
 | DO 앱 심사 통과 여부 | 주행 화면은 만들었으나 심사 기준과 항목별 대조 안 함, 알림음·오디오 포커스 미구현 | 심사 체크리스트(`docs/pleos/04-test-and-publish.md`) 대조 |
 
 ## Virtual Console로 차량 값 바꾸기
