@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -60,7 +58,7 @@ fun RouteScreen(
             Column(Modifier.padding(IviSpace.xl), verticalArrangement = Arrangement.spacedBy(IviSpace.l)) {
                 Text("경로", style = IviType.display, color = c.ivi_text_primary)
                 Text("내비게이션에 목적지가 없습니다.", style = IviType.title, color = c.ivi_text_secondary)
-                IviButton("시연 경로 설정 (대전 경유 → 부산신항)", onRequestTestRoute, icon = Icons.Rounded.Navigation)
+                IviButton("시연 경로 설정 (대전 경유 → 부산신항)", onRequestTestRoute, icon = HermesIcons.Navigation)
             }
             return@BoxWithConstraints
         }

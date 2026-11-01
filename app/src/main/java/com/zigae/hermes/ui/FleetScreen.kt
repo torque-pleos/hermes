@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -105,7 +103,7 @@ fun FleetScreen(
                             "${FleetFusion.MIN_DRY}대 이상이 맑음이면 레이더의 약한 비 오경보를 내립니다",
                         ).forEach { Text("· $it", style = IviType.body, color = c.ivi_text_secondary) }
                     }
-                    if (fleet.configured) IviButton("시연: 경로 앞 가상 차량 비 관측 만들기", onSeedDemo, primary = false, icon = Icons.Rounded.CloudUpload)
+                    if (fleet.configured) IviButton("시연: 경로 앞 가상 차량 비 관측 만들기", onSeedDemo, primary = false, icon = HermesIcons.CloudUpload)
                 }
             }
             if (wide) {

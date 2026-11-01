@@ -37,7 +37,8 @@
 
 구름 + 빗방울 개수로 단계를 표현(약 1 · 보통 2 · 강 3 · 매우 강 4), 비 없음은 구름 + 체크, 예보 없음은 흐린 구름.
 색과 **모양**을 함께 써서 색각 이상·흑백에서도 구분된다. 직접 그린 벡터(사내 아이콘 자산 미사용).
-탭 아이콘은 Material Icons(Apache 2.0).
+탭·버튼 아이콘 6개(Dashboard, Route, Groups, Tune, Navigation, CloudUpload)는 Material Icons Rounded(Apache 2.0) 경로 데이터를
+`ui/HermesIcons.kt`에 옮겨 쓴다. 아이콘 확장 라이브러리 전체를 넣으면 디버그 APK가 88MB → 제거 후 47MB.
 
 ## 강수 색
 

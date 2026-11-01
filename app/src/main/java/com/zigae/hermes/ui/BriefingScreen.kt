@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -107,7 +105,7 @@ private fun EmptyRoute(routeRain: List<RoutePointRain>, onRequestTestRoute: () -
         val here = routeRain.firstOrNull()?.forecast
         RainBadge(here?.rainLevel, "현재 위치 ${here?.let { arrivalText(it) } ?: "확인 중"}", 56.dp)
         Text("내비게이션에 목적지를 설정하면 경유지·도착지 강수를 알려드립니다.", style = IviType.title, color = c.ivi_text_secondary)
-        IviButton("시연 경로 설정 (대전 경유 → 부산신항)", onRequestTestRoute, icon = Icons.Rounded.Navigation)
+        IviButton("시연 경로 설정 (대전 경유 → 부산신항)", onRequestTestRoute, icon = HermesIcons.Navigation)
     }
 }
 

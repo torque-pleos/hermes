@@ -13,11 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Dashboard
-import androidx.compose.material.icons.rounded.Groups
-import androidx.compose.material.icons.rounded.Route
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -46,11 +41,11 @@ fun AppShell(tab: Tab, onTab: (Tab) -> Unit, fleetWet: Int, content: @Composable
                 contentAlignment = Alignment.Center,
             ) { Text("H", style = IviType.headline, color = c.ivi_accent_on_primary) }
             Spacer(Modifier.height(IviSpace.m))
-            RailItem(Icons.Rounded.Dashboard, "브리핑", tab == Tab.BRIEFING, { onTab(Tab.BRIEFING) })
-            RailItem(Icons.Rounded.Route, "경로", tab == Tab.ROUTE, { onTab(Tab.ROUTE) })
-            RailItem(Icons.Rounded.Groups, "차량 공유", tab == Tab.FLEET, { onTab(Tab.FLEET) }, badge = fleetWet.takeIf { it > 0 }?.toString())
+            RailItem(HermesIcons.Dashboard, "브리핑", tab == Tab.BRIEFING, { onTab(Tab.BRIEFING) })
+            RailItem(HermesIcons.Route, "경로", tab == Tab.ROUTE, { onTab(Tab.ROUTE) })
+            RailItem(HermesIcons.Groups, "차량 공유", tab == Tab.FLEET, { onTab(Tab.FLEET) }, badge = fleetWet.takeIf { it > 0 }?.toString())
             Spacer(Modifier.weight(1f))
-            RailItem(Icons.Rounded.Tune, "진단", tab == Tab.DIAGNOSTICS, { onTab(Tab.DIAGNOSTICS) })
+            RailItem(HermesIcons.Tune, "진단", tab == Tab.DIAGNOSTICS, { onTab(Tab.DIAGNOSTICS) })
         }
         VDivider()
         Box(Modifier.weight(1f).fillMaxHeight()) { content() }
