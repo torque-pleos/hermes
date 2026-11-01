@@ -30,6 +30,10 @@
         <activity
             android:name=".MainActivity"
             android:exported="true">
+            <!-- 주행 중 화면 표시를 위한 DO 선언. CarUxRestrictions 준수 필요(주행 중 텍스트 최소화, 입력 제한). -->
+            <meta-data
+                android:name="distractionOptimized"
+                android:value="true" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
