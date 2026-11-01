@@ -48,7 +48,7 @@ open http://127.0.0.1:8088/
 | 항목 | 결과 |
 | --- | --- |
 | Android 버전 | 14 (`Pleos/crp_avd_arm64:14/RELEASE.release_connect_v2.1.0`) |
-| Android 표준 TTS 엔진 | **존재** — `ai.pleos.playground.caas/.service.speech.SpeechService`가 `android.intent.action.TTS_SERVICE` 제공 (`tts_default_synth`는 미설정). 3rd party 앱의 `android.speech.tts.TextToSpeech` 동작 여부는 테스트 앱으로 확인 필요 |
+| Android 표준 TTS 엔진 | **존재** — `ai.pleos.playground.caas/.service.speech.SpeechService`가 `android.intent.action.TTS_SERVICE` 제공 (`tts_default_synth`는 미설정). **단, 3rd party 앱에서는 사용 불가** — `TextToSpeech` 기본 생성자·엔진 명시(`ai.pleos.playground.caas`) 모두 초기화 실패(code -1, "not bound to TTS engine"). Hermes 진단 화면으로 확인 |
 | LLM 서비스 | `ai.pleos.playground.caas/.service.llm.LLMService` 존재 (SDK는 Playground 메뉴에 없음) |
 | 위치 | 위치 서비스 ON, `gps`/`fused`/`passive` 프로바이더 존재 |
 | 내비 | `ai.umos.maps.android.navigation.app`, `ai.pleos.playground.service.navi` (NaviHelper 백엔드) |

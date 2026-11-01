@@ -20,7 +20,7 @@
 | NaviHelper (경로·위치·TBT 조회, 경유지 추가·재탐색 등 경로 탐색 설정) | TextToSpeech / SpeechToText SDK |
 | 외부 API (RainViewer, 기상청 등) | FusedLocation SDK, LLM SDK |
 
-→ 위치는 **NaviHelper `getCurrentLocationInfo()`**, 음성은 **Android 표준 `TextToSpeech` 동작 여부 확인 후** 사용(불가 시 짧은 화면 알림 + 알림음).
+→ 위치는 **NaviHelper `getCurrentLocationInfo()`**, 음성은 **사용 불가**(2026-11-01 에뮬레이터 확인: 3rd party 앱의 Android 표준 TTS 초기화 실패) → **짧은 화면 알림 + 알림음**으로 안내.
 
 ## 1. 문제 정의 (Pain Points)
 
@@ -49,7 +49,7 @@
 
 ### F3. 경유지(상하차 지점) 도착 시각 강수 타임라인
 - NaviHelper로 경유지 목록 + 각 지점 ETA 획득 → F2 예측과 **도착 시각 기준** 매칭.
-- 주행 중: "다음 하차지 도착 14:20 · 비 예상" 수준의 **짧은 알림** (+ 가능하면 음성).
+- 주행 중: "다음 하차지 도착 14:20 · 비 예상" 수준의 **짧은 화면 알림 + 알림음** (음성 없음).
 - 우회 필요 시 정차 중/확인 후 `requestReRoute()` / `changeRouteOption()`.
 
 ### F4. 레이더 × 와이퍼 교차 검증 ★차별화
@@ -88,7 +88,7 @@
 | Vehicle — Wiper | 와이퍼 상태 조회/구독 | `pleos.car.permission.CAR_WINDOWS` (`READ_WINDSHIELD_WIPERS` 여부 확인) |
 | NaviHelper | 경유지·ETA·현재 위치·경로 상태 조회 | `pleos.car.permission.NAVI_ROUTE` |
 | NaviHelper | 재탐색, 경유지 추가, 경로 옵션 변경 | `pleos.car.permission.NAVI_ROUTE_SEARCH` |
-| Android 표준 | `android.speech.tts.TextToSpeech` (동작 여부 에뮬레이터 확인), 알림 | — |
+| Android 표준 | 알림·알림음 (`TextToSpeech`는 에뮬레이터에서 초기화 실패 → 사용 안 함) | — |
 | 외부 | **RainViewer Weather Maps API** (과거 2h 레이더 타일, 줌 ≤7, 100 req/min/IP) | 개인·교육용 한정 — 데모 전용 |
 | 외부 (상용화) | 기상청 레이더 합성영상·초단기강수예측 (공공데이터) | 상용화 시 RainViewer 대체 |
 
@@ -98,7 +98,7 @@
 [차량 앱 (Pleos Connect)]
   ├─ Vehicle State → 점검 데이터, 와이퍼 상태
   ├─ NaviHelper    → 경유지/ETA/현재 위치
-  ├─ 주행 중: 짧은 알림(+Android TTS) / 정차 중: 레이더·점검 화면
+  ├─ 주행 중: 짧은 화면 알림 + 알림음 / 정차 중: 레이더·점검 화면
   └─ HTTPS ─────────────┐
                         ▼
 [Hermes 서버]
@@ -134,7 +134,7 @@
 | **화물차/상용차 Pleos Connect 탑재 여부 불명** | 치명적 | 탑재 차종 확인. 대안: PBV·배송 밴으로 타깃 축소 |
 | RainViewer 라이선스(개인·교육용) | 높음(상용) | 데모 한정 사용 명시, 상용화는 기상청 데이터 |
 | 자체 이동 예측 정확도 | 중 | 30분 이내 단기 외삽으로 범위 제한, 와이퍼 실측으로 보정 |
-| Android 표준 TTS가 Pleos에서 동작하는지 | 중 | 에뮬레이터 확인. 불가 시 텍스트 알림 + 알림음 |
+| Android 표준 TTS 사용 불가 (에뮬레이터 확인 완료) | 하 | 텍스트 알림 + 알림음으로 확정. 실차에서 다를 수 있으나 의존하지 않음 |
 | 주행 중 화면 알림의 주의 분산 기준 | 중 | 짧은 텍스트·아이콘만, 레이더 지도는 정차 시에만 |
 | NaviHelper 경로 전체 좌표 제공 여부 | 중 | 경유지 단위 매칭으로 F3 성립 |
 
@@ -145,6 +145,8 @@
 - 가장 문제 되는 화물·차종?
 
 ## 9. MVP 범위 (공모전 제출)
+
+- [x] 개발 골격 + SDK 진단 화면 (Vehicle State · NaviHelper 연결 확인)
 
 - [ ] F1 운행 전 자동 점검 (Vehicle State)
 - [ ] F2 강수 레이더 엔진 (RainViewer 수집 + 이동 예측)
