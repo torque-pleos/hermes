@@ -1,8 +1,6 @@
 package com.zigae.hermes.radar
 
 import kotlin.math.floor
-import kotlin.math.max
-import kotlin.math.min
 
 /** 타일 좌표 범위 (양 끝 포함). */
 data class TileRange(val zoom: Int, val minX: Int, val minY: Int, val maxX: Int, val maxY: Int) {
@@ -13,55 +11,64 @@ data class TileRange(val zoom: Int, val minX: Int, val minY: Int, val maxX: Int,
     fun tiles(): List<Pair<Int, Int>> =
         (minY..maxY).flatMap { y -> (minX..maxX).map { x -> x to y } }
 
-    companion object {
-        /**
-         * 관심 지점들을 모두 덮고, 비구름이 외삽 시간 동안 이동해 올 거리만큼 여유를 둔 타일 범위.
-         * 타일 수가 [maxTiles]를 넘으면 첫 지점(현재 위치) 중심으로 줄인다.
-         */
-        fun covering(
-            points: List<Pair<Double, Double>>,
-            zoom: Int,
-            marginPx: Int,
-            maxTiles: Int,
-        ): TileRange? {
-            if (points.isEmpty()) return null
-            val xs = points.map { WebMercator.pixelX(it.second, zoom) }
-            val ys = points.map { WebMercator.pixelY(it.first, zoom) }
-            val size = WebMercator.TILE_SIZE
-            val last = (1 shl zoom) - 1
-            fun tile(px: Double) = floor(px / size).toInt()
+}
 
-            var range = TileRange(
-                zoom,
-                clampInt(tile(xs.min() - marginPx), 0, last),
-                clampInt(tile(ys.min() - marginPx), 0, last),
-                clampInt(tile(xs.max() + marginPx), 0, last),
-                clampInt(tile(ys.max() + marginPx), 0, last),
-            )
-            if (range.count <= maxTiles) return range
+/**
+ * 경로 지점별로 필요한 타일만 고른다.
+ * - 외삽 한계 이내 지점: 비구름이 그 시간 동안 이동해 올 거리(최대 [maxSpeedKmh])만큼 여유
+ * - 한계를 넘는 지점: 현재 관측만 쓰므로 지점 주변 소량
+ * 타일이 [maxTiles]를 넘으면 가까운 시각 지점의 타일을 우선한다.
+ */
+object RouteTiles {
+    data class Need(val lat: Double, val lon: Double, val leadMinutes: Int)
 
-            // 현재 위치 중심으로 축소
-            val side = floor(Math.sqrt(maxTiles.toDouble())).toInt().coerceAtLeast(1)
-            val cx = tile(xs.first())
-            val cy = tile(ys.first())
-            val half = side / 2
-            val minX = max(range.minX, min(cx - half, range.maxX - side + 1))
-            val minY = max(range.minY, min(cy - half, range.maxY - side + 1))
-            range = TileRange(zoom, minX, minY, min(minX + side - 1, last), min(minY + side - 1, last))
-            return range
+    fun select(
+        needs: List<Need>,
+        zoom: Int,
+        horizonMinutes: Int,
+        maxTiles: Int,
+        maxSpeedKmh: Double = 100.0,
+    ): Set<Pair<Int, Int>> {
+        val size = WebMercator.TILE_SIZE
+        val last = (1 shl zoom) - 1
+        val picked = LinkedHashSet<Pair<Int, Int>>()
+        for (n in needs.sortedBy { it.leadMinutes }) {
+            val mpp = WebMercator.metersPerPixel(n.lat, zoom)
+            val reachMin = n.leadMinutes.coerceIn(0, horizonMinutes)
+            val marginPx = if (n.leadMinutes > horizonMinutes) BASE_MARGIN_PX
+            else (BASE_MARGIN_PX + reachMin * maxSpeedKmh * 1000 / 60 / mpp).toInt()
+            val px = WebMercator.pixelX(n.lon, zoom)
+            val py = WebMercator.pixelY(n.lat, zoom)
+            val tiles = buildList {
+                for (ty in clampInt(floor((py - marginPx) / size).toInt(), 0, last)..clampInt(floor((py + marginPx) / size).toInt(), 0, last))
+                    for (tx in clampInt(floor((px - marginPx) / size).toInt(), 0, last)..clampInt(floor((px + marginPx) / size).toInt(), 0, last))
+                        add(tx to ty)
+            }
+            for (t in tiles) {
+                if (picked.size >= maxTiles) return picked
+                picked += t
+            }
         }
+        return picked
     }
+
+    fun bounds(zoom: Int, tiles: Set<Pair<Int, Int>>): TileRange? {
+        if (tiles.isEmpty()) return null
+        return TileRange(zoom, tiles.minOf { it.first }, tiles.minOf { it.second }, tiles.maxOf { it.first }, tiles.maxOf { it.second })
+    }
+
+    private const val BASE_MARGIN_PX = 8
 }
 
 object RadarMosaic {
     /**
-     * 타일 픽셀(ARGB, 256×256)을 이어 붙여 [RadarFrame]을 만든다. 없는 타일은 에코 없음으로 채운다.
+     * 타일 픽셀(ARGB, 256×256)을 이어 붙여 [RadarFrame]을 만든다. 없는 타일은 [RadarFrame.NO_DATA]로 채운다.
      */
     fun build(timeEpochSec: Long, range: TileRange, tiles: Map<Pair<Int, Int>, IntArray>): RadarFrame {
         val size = WebMercator.TILE_SIZE
         val w = range.columns * size
         val h = range.rows * size
-        val dbz = FloatArray(w * h) { RadarFrame.NO_ECHO }
+        val dbz = FloatArray(w * h) { RadarFrame.NO_DATA }
         for ((key, pixels) in tiles) {
             val (tx, ty) = key
             if (tx !in range.minX..range.maxX || ty !in range.minY..range.maxY) continue

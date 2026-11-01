@@ -110,28 +110,12 @@ class RadarCoreTest {
 class RadarMosaicTest {
 
     @Test
-    fun coveringAddsMarginAndCapsTileCount() {
-        val seoul = 37.41 to 127.09
-        val busan = 35.08 to 128.82
-        val range = TileRange.covering(listOf(seoul, busan), zoom = 7, marginPx = 100, maxTiles = 16)!!
-        assertTrue(range.count <= 16)
-        assertTrue(range.minX <= 109 && range.maxX >= 109)
-
-        val capped = TileRange.covering(listOf(seoul, busan), zoom = 7, marginPx = 600, maxTiles = 4)!!
-        assertEquals(4, capped.count)
-        // 축소 시 첫 지점(현재 위치)이 포함되어야 한다
-        val sx = (WebMercator.pixelX(seoul.second, 7) / 256).toInt()
-        val sy = (WebMercator.pixelY(seoul.first, 7) / 256).toInt()
-        assertTrue(sx in capped.minX..capped.maxX && sy in capped.minY..capped.maxY)
-    }
-
-    @Test
     fun mosaicPlacesTilesAndDecodes() {
         val range = TileRange(7, 109, 49, 110, 49)
         val c40 = RainViewerPalette.rainColor(40)
         val frame = RadarMosaic.build(0, range, mapOf((110 to 49) to IntArray(256 * 256) { c40 }))
         assertEquals(512, frame.width)
-        assertEquals(RadarFrame.NO_ECHO, frame[10, 10]) // 없는 타일
+        assertTrue(frame[10, 10].isNaN()) // 받지 않은 타일 = 데이터 없음
         assertEquals(40f, frame[300, 10]) // 두 번째 타일
         assertEquals(109 * 256, frame.originX)
     }
@@ -167,5 +151,66 @@ class RouteRainTest {
         val worst = leg.worst!!.forecast as PointForecast.Rain
         assertEquals(RainLevel.HEAVY, worst.level)
         assertEquals("A→B", leg.worst!!.point.label)
+    }
+}
+
+class RouteTilesTest {
+    private val now = 0
+
+    @Test
+    fun nearPointsGetMarginFarPointsOnlyTheirTile() {
+        val seoul = RouteTiles.Need(37.41, 127.09, 0)
+        val busanFar = RouteTiles.Need(35.08, 128.82, 280) // 예측 한계 밖 → 주변만
+        val tiles = RouteTiles.select(listOf(seoul, busanFar), 7, 90, 32)
+        val bx = (WebMercator.pixelX(128.82, 7) / 256).toInt()
+        val by = (WebMercator.pixelY(35.08, 7) / 256).toInt()
+        assertTrue(bx to by in tiles)
+        // 부산은 여유 8px라 타일 1~2개만 추가된다
+        val withoutBusan = RouteTiles.select(listOf(seoul), 7, 90, 32)
+        assertTrue(tiles.size - withoutBusan.size <= 2)
+    }
+
+    @Test
+    fun capPrefersEarlierPoints() {
+        val near = RouteTiles.Need(37.41, 127.09, 60)
+        val far = RouteTiles.Need(33.5, 126.5, 80)
+        val tiles = RouteTiles.select(listOf(far, near), 7, 90, 4)
+        val nx = (WebMercator.pixelX(127.09, 7) / 256).toInt()
+        val ny = (WebMercator.pixelY(37.41, 7) / 256).toInt()
+        assertEquals(4, tiles.size)
+        assertTrue(nx to ny in tiles)
+    }
+
+    @Test
+    fun missingTilesAreNotTreatedAsDry() {
+        // 오른쪽 타일만 받은 모자이크: 왼쪽 지점은 OutOfCoverage(맑음 아님)
+        val range = TileRange(7, 109, 49, 110, 49)
+        val c40 = RainViewerPalette.rainColor(40)
+        val frame = RadarMosaic.build(0, range, mapOf((110 to 49) to IntArray(256 * 256) { c40 }))
+        val cast = Nowcaster(frame, Motion.NONE)
+        val leftLat = WebMercator.lat(49 * 256 + 100.0, 7)
+        val leftLon = WebMercator.lon(109 * 256 + 100.0, 7)
+        assertTrue(cast.forecast(leftLat, leftLon, 0) is PointForecast.OutOfCoverage)
+        // 경계 근처 지점은 받은 쪽 값만 쓴다
+        val edgeLon = WebMercator.lon(110 * 256 + 1.0, 7)
+        val f = cast.forecast(leftLat, edgeLon, 0)
+        assertTrue(f is PointForecast.Rain && f.dbz == 40f)
+    }
+
+    @Test
+    fun motionIgnoresMissingTiles() {
+        // 비구름이 이동하는 왼쪽 절반만 데이터가 있고 오른쪽은 없음 → 여전히 이동을 찾는다
+        val w = 192; val h = 192
+        fun frame(t: Long, cx: Int): RadarFrame {
+            val v = FloatArray(w * h) { i -> if (i % w >= 120) RadarFrame.NO_DATA else RadarFrame.NO_ECHO }
+            for (y in 0 until h) for (x in 0 until 120) {
+                val d2 = (x - cx) * (x - cx) + (y - 90) * (y - 90)
+                if (d2 <= 196) v[y * w + x] = 44f - d2 / 14f
+                if (x - cx in -30..-15 && kotlin.math.abs(y - 90) <= 3) v[y * w + x] = 25f
+            }
+            return RadarFrame(t, 7, 0, 0, w, h, v)
+        }
+        val m = MotionEstimator.estimate((0..3).map { frame(600L * it, 40 + 5 * it) })
+        assertEquals(5.0 / 600, m.vxPxPerSec, 1e-6)
     }
 }

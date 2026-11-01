@@ -17,7 +17,7 @@ class RadarFrame(
     val originY: Int,
     val width: Int,
     val height: Int,
-    /** 행 우선 dBZ 값. 에코 없음은 [NO_ECHO]. */
+    /** 행 우선 dBZ 값. 에코 없음은 [NO_ECHO], 받지 않은 타일은 [NO_DATA](NaN). */
     val dbz: FloatArray,
 ) {
     init {
@@ -25,7 +25,7 @@ class RadarFrame(
     }
 
     operator fun get(x: Int, y: Int): Float =
-        if (x in 0 until width && y in 0 until height) dbz[y * width + x] else NO_ECHO
+        if (x in 0 until width && y in 0 until height) dbz[y * width + x] else NO_DATA
 
     fun contains(x: Int, y: Int) = x in 0 until width && y in 0 until height
 
@@ -33,22 +33,25 @@ class RadarFrame(
     fun gridX(lon: Double): Double = WebMercator.pixelX(lon, zoom) - originX
     fun gridY(lat: Double): Double = WebMercator.pixelY(lat, zoom) - originY
 
-    /** (cx, cy) 중심 반경 [radius] 픽셀 안의 최대 반사도. 격자 밖이면 null. */
+    /** (cx, cy) 중심 반경 [radius] 픽셀 안의 최대 반사도. 데이터가 하나도 없으면 null. */
     fun maxAround(cx: Double, cy: Double, radius: Int): Float? {
         val x0 = cx.roundToInt()
         val y0 = cy.roundToInt()
-        if (!contains(x0, y0)) return null
-        var best = NO_ECHO
+        if (!contains(x0, y0) || this[x0, y0].isNaN()) return null
+        var best: Float? = null
         val r2 = radius * radius
         for (dy in -radius..radius) for (dx in -radius..radius) {
             if (dx * dx + dy * dy > r2) continue
-            best = max(best, this[x0 + dx, y0 + dy])
+            val v = this[x0 + dx, y0 + dy]
+            if (!v.isNaN()) best = if (best == null) v else max(best, v)
         }
         return best
     }
 
     companion object {
         const val NO_ECHO = -32f
+        /** 받지 않은 타일 */
+        const val NO_DATA = Float.NaN
 
     }
 }

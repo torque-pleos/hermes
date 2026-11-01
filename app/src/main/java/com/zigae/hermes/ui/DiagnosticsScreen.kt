@@ -119,7 +119,7 @@ private fun ColumnScope.RadarSection(
     } else {
         val frame = cast.latest
         Line("레이더 관측", "${hhmm(frame.timeEpochSec)} (${(now - frame.timeEpochSec) / 60}분 전)")
-        Line("레이더 영역", "${radar.range?.count ?: 0}타일 · 프레임 ${radar.framesUsed}개")
+        Line("레이더 영역", "경로 타일 ${radar.tileCount}개 · 프레임 ${radar.framesUsed}개")
         val m = cast.motion
         val lat = routeRain.firstOrNull()?.point?.lat ?: 37.0
         Line(

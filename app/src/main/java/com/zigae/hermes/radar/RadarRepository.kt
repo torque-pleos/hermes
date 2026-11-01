@@ -23,6 +23,8 @@ data class RadarState(
     val loading: Boolean = false,
     val nowcaster: Nowcaster? = null,
     val range: TileRange? = null,
+    /** 실제로 받은 타일 수 (range 안에서 경로에 필요한 것만) */
+    val tileCount: Int = 0,
     val framesUsed: Int = 0,
     val fetchedAtEpochSec: Long = 0,
     val error: String? = null,
@@ -34,7 +36,8 @@ data class RadarState(
  */
 class RadarRepository(
     private val scope: CoroutineScope,
-    private val pointsProvider: () -> List<Pair<Double, Double>>,
+    /** 경로 표본 지점(도착 예정 시각 포함) */
+    private val pointsProvider: () -> List<RoutePoint>,
     private val client: RainViewerClient = RainViewerClient(),
 ) {
     private val _state = MutableStateFlow(RadarState())
@@ -46,16 +49,17 @@ class RadarRepository(
     /** RainViewer 요청 동시성 제한 */
     private val io = Dispatchers.IO.limitedParallelism(PARALLEL_DOWNLOADS)
     private var job: Job? = null
-    private var lastRange: TileRange? = null
+    private var lastTiles: Set<Pair<Int, Int>> = emptySet()
     private var lastRefreshMs = 0L
 
     fun start() {
         job = scope.launch {
             while (isActive) {
-                val range = currentRange()
+                val tiles = currentTiles()
                 val stale = System.currentTimeMillis() - lastRefreshMs > REFRESH_INTERVAL_MS
-                if (range != null && (stale || range != lastRange)) refresh(range)
-                delay(if (range == null) WAIT_LOCATION_MS else CHECK_INTERVAL_MS)
+                // 경로가 바뀌어 새 타일이 필요해졌을 때도 갱신 (줄어든 경우는 그대로 사용)
+                if (tiles.isNotEmpty() && (stale || !lastTiles.containsAll(tiles))) refresh(tiles)
+                delay(if (tiles.isEmpty()) WAIT_LOCATION_MS else CHECK_INTERVAL_MS)
             }
         }
     }
@@ -71,18 +75,23 @@ class RadarRepository(
         else -> "레이더 처리 오류 (${e.javaClass.simpleName})"
     }
 
-    private fun currentRange(): TileRange? =
-        TileRange.covering(pointsProvider(), ZOOM, MARGIN_PX, MAX_TILES)
+    private fun currentTiles(): Set<Pair<Int, Int>> {
+        val now = System.currentTimeMillis() / 1000
+        val needs = pointsProvider().map {
+            RouteTiles.Need(it.lat, it.lon, ((it.etaEpochSec - now) / 60).toInt() + RADAR_LATENCY_MIN)
+        }
+        return RouteTiles.select(needs, ZOOM, Nowcaster.DEFAULT_HORIZON_MIN, MAX_TILES)
+    }
 
-    private suspend fun refresh(range: TileRange) = mutex.withLock {
+    private suspend fun refresh(tiles: Set<Pair<Int, Int>>) = mutex.withLock {
         _state.update { it.copy(loading = true) }
         try {
-            val result = load(range)
-            lastRange = range
+            val result = load(tiles)
+            lastTiles = tiles
             lastRefreshMs = System.currentTimeMillis()
             _state.value = result
             val m = result.nowcaster?.motion
-            Log.i(TAG, "radar ok frames=${result.framesUsed} tiles=${range.count} motion=$m")
+            Log.i(TAG, "radar ok frames=${result.framesUsed} tiles=${tiles.size}/${result.range?.count} motion=$m")
         } catch (e: Exception) {
             Log.w(TAG, "radar refresh failed", e)
             lastRefreshMs = System.currentTimeMillis() - REFRESH_INTERVAL_MS + RETRY_DELAY_MS
@@ -91,12 +100,13 @@ class RadarRepository(
         }
     }
 
-    private suspend fun load(range: TileRange): RadarState = coroutineScope {
+    private suspend fun load(tiles: Set<Pair<Int, Int>>): RadarState = coroutineScope {
+        val range = RouteTiles.bounds(ZOOM, tiles)!!
         val index = withContext(io) { client.fetchIndex() }
         val refs = index.frames.takeLast(FRAMES_FOR_MOTION)
         require(refs.isNotEmpty()) { "레이더 프레임 없음" }
         // 프레임 × 타일을 병렬로 받는다 (캐시에 있으면 재사용)
-        val pixels = refs.flatMap { ref -> range.tiles().map { ref to it } }
+        val pixels = refs.flatMap { ref -> tiles.map { ref to it } }
             .map { (ref, xy) ->
                 async(io) {
                     val key = "${ref.path}/${range.zoom}/${xy.first}/${xy.second}"
@@ -119,6 +129,7 @@ class RadarRepository(
             loading = false,
             nowcaster = Nowcaster(frames.last(), motion),
             range = range,
+            tileCount = tiles.size,
             framesUsed = frames.size,
             fetchedAtEpochSec = System.currentTimeMillis() / 1000,
         )
@@ -127,9 +138,9 @@ class RadarRepository(
     private companion object {
         const val TAG = "Hermes/Radar"
         const val ZOOM = 7 // RainViewer 최대 zoom
-        /** 90분 × 최대 100km/h ≈ 150km ≈ 150px(z7, 중위도) */
-        const val MARGIN_PX = 150
-        const val MAX_TILES = 16
+        const val MAX_TILES = 24
+        /** 최신 레이더 프레임은 보통 10~20분 전 관측이라 외삽 시간에 더한다 */
+        const val RADAR_LATENCY_MIN = 15
         /** 이동 추정용 최근 프레임 수 (10분 간격 → 30분 구간) */
         const val FRAMES_FOR_MOTION = 4
         const val MAX_CACHED_TILES = FRAMES_FOR_MOTION * MAX_TILES + MAX_TILES

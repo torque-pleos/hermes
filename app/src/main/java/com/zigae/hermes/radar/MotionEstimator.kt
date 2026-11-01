@@ -79,7 +79,7 @@ object MotionEstimator {
     }
 
     private class Grid(val w: Int, val h: Int, val v: FloatArray) {
-        operator fun get(x: Int, y: Int) = if (x in 0 until w && y in 0 until h) v[y * w + x] else RadarFrame.NO_ECHO
+        operator fun get(x: Int, y: Int) = if (x in 0 until w && y in 0 until h) v[y * w + x] else RadarFrame.NO_DATA
     }
 
     private data class Shift(val dx: Int, val dy: Int, val cost: Double)
@@ -91,8 +91,11 @@ object MotionEstimator {
         val h = f.height / k
         val out = FloatArray(w * h)
         for (y in 0 until h) for (x in 0 until w) {
-            var m = RadarFrame.NO_ECHO
-            for (j in 0 until k) for (i in 0 until k) m = maxOf(m, f[x * k + i, y * k + j])
+            var m = RadarFrame.NO_DATA
+            for (j in 0 until k) for (i in 0 until k) {
+                val v = f[x * k + i, y * k + j]
+                if (!v.isNaN()) m = if (m.isNaN()) v else maxOf(m, v)
+            }
             out[y * w + x] = m
         }
         return Grid(w, h, out)
@@ -116,7 +119,9 @@ object MotionEstimator {
                 val sx = x - dx
                 val sy = y - dy
                 if (sx !in 0 until prev.w || sy !in 0 until prev.h) continue
-                sum += abs(clip(cur.v[i]) - clip(prev[sx, sy]))
+                val pv = prev[sx, sy]
+                if (pv.isNaN()) continue // 받지 않은 타일은 비교에서 제외
+                sum += abs(clip(cur.v[i]) - clip(pv))
                 n++
             }
             if (n < echoIdx.size / 2) continue // 겹치는 영역이 너무 작으면 제외

@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
         vehicleMonitor = VehicleMonitor(this, lifecycleScope).also { it.start() }
         naviMonitor = NaviMonitor(this, lifecycleScope).also { it.start() }
         radar = RadarRepository(lifecycleScope, pointsProvider = {
-            routePoints(naviMonitor.state.value).map { it.lat to it.lon }
+            RouteRain.allSamples(routePoints(naviMonitor.state.value))
         }).also { it.start() }
         // 기상청 예보: 경로 표본 격자를 1분마다 확인 (발표 시각이 바뀐 격자만 실제 호출)
         lifecycleScope.launch {
