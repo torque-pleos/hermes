@@ -79,7 +79,7 @@ fun DriveScreen(routeRain: List<RoutePointRain>, legs: List<LegRain>, loading: B
             val w = after.worst
             val l = w?.forecast?.rainLevel
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)).background(rainColor(l)))
+                RainGlyph(l, 44.dp)
                 Spacer(Modifier.width(IviSpace.m))
                 Text(
                     "이후 ${short(after.to.label)} ${hhmm(after.to.etaEpochSec)} · " +
@@ -104,7 +104,7 @@ private fun Hero(level: RainLevel?, text: String, sub: String?) {
             .border(2.dp, color, RoundedCornerShape(28.dp)).padding(IviSpace.l),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(96.dp).clip(RoundedCornerShape(22.dp)).background(color))
+        RainGlyph(level ?: RainLevel.NONE, 112.dp)
         Spacer(Modifier.width(IviSpace.l))
         Column {
             Text(text, style = IviType.display, color = c.ivi_text_primary, maxLines = 1, overflow = TextOverflow.Ellipsis)

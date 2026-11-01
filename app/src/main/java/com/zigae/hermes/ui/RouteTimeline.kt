@@ -42,7 +42,7 @@ fun RainStrip(legs: List<LegRain>, nowEpochSec: Long) {
     val stops = legs.map { it.to.etaEpochSec }
 
     Column(Modifier.fillMaxWidth()) {
-        Canvas(Modifier.fillMaxWidth().height(56.dp)) {
+        Canvas(Modifier.fillMaxWidth().height(76.dp)) {
             val w = size.width
             val h = size.height
             fun x(t: Long) = ((t - start).coerceIn(0, end - start) / span) * w
@@ -65,7 +65,7 @@ fun RainStrip(legs: List<LegRain>, nowEpochSec: Long) {
                 }
             }
             // 둥근 모서리 효과: 양 끝을 배경과 같은 투명 처리 대신 테두리로 마감
-            drawRoundRect(tick.copy(alpha = 0.25f), size = Size(w, h), cornerRadius = CornerRadius(14f), style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+            drawRoundRect(tick.copy(alpha = 0.25f), size = Size(w, h), cornerRadius = CornerRadius(18f), style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
             stops.forEach { t -> drawRect(tick, Offset(x(t) - 2f, -6f), Size(4f, h + 12f)) }
             val radar = x(start + 60 * 60)
             if (radar < w) drawLine(

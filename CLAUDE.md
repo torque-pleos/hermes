@@ -39,7 +39,9 @@ adb logcat -s Hermes/Vehicle Hermes/Navi Hermes/Radar Hermes/KMA Hermes/Fleet
 | `supabase/` | Supabase 프로젝트 `hermes`(ref `kayyybsxqnvbsimbearq`, 서울, 개인 조직 zigae) 설정과 스키마(`migrations/0001_wiper_reports.sql`). 적용: `supabase link --project-ref kayyybsxqnvbsimbearq` → `supabase db push` |
 | `app/.../vehicle/DrivingState.kt` | `CarUxRestrictionsManager`로 주행 중(DO 필요) 판단 |
 | `app/.../ui/theme/HermesTheme.kt` | 디자인 토큰(`IviColors` 주간·야간, `IviType`, `IviSpace`) — [디자인 문서](docs/design/README.md) |
-| `app/.../ui/HomeScreen.kt` · `RouteTimeline.kt` · `Components.kt` | 주차 중 홈 "운행 브리핑": 결론 배너, 경로 강수 띠, 정차지 목록, 근거 카드. 1000dp 초과 2열 / 이하 1열 |
+| `app/.../ui/AppShell.kt` | 왼쪽 내비게이션 레일(브리핑·경로·차량 공유·진단) + 본문 |
+| `app/.../ui/BriefingScreen.kt` · `RouteScreen.kt` · `FleetScreen.kt` | 주차 중 화면: 결론 카드·숫자 타일·강수 띠 / 정차지 목록-상세 / 차량 공유(큰 스위치) |
+| `app/.../ui/Components.kt` · `RouteTimeline.kt` · `Format.kt` | 누름 반응 카드(`Pressable`), 강수 아이콘(`RainGlyph`), 큰 버튼·스위치·타일·레일 항목, 강수 띠, 문구 헬퍼 |
 | `app/.../ui/DriveScreen.kt` | 주행 중 화면: 다음 정차지·도착 시각, 가는 길 최대 강수(색 블록)·시각·근거, 이후 구간 한 줄 |
 | `app/.../ui/DiagnosticsScreen.kt` | 개발·시연용 진단 화면 (홈 헤더 "진단"). "주행 화면 미리보기" 버튼 |
 

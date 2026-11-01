@@ -25,7 +25,11 @@ import com.zigae.hermes.radar.RoutePoint
 import com.zigae.hermes.radar.RouteRain
 import com.zigae.hermes.ui.DiagnosticsScreen
 import com.zigae.hermes.ui.DriveScreen
-import com.zigae.hermes.ui.HomeScreen
+import com.zigae.hermes.ui.AppShell
+import com.zigae.hermes.ui.BriefingScreen
+import com.zigae.hermes.ui.FleetScreen
+import com.zigae.hermes.ui.RouteScreen
+import com.zigae.hermes.ui.Tab
 import com.zigae.hermes.ui.theme.HermesTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.clickable
@@ -119,40 +123,54 @@ class MainActivity : ComponentActivity() {
             val routeRain = RouteRain.forecast(forecaster, points)
             val legs = RouteRain.legs(forecaster, points)
 
-            var showDiagnostics by remember { mutableStateOf(false) }
+            var tab by remember { mutableStateOf(Tab.BRIEFING) }
+            var selectedStop by remember { mutableStateOf(1) }
             // 개발·발표용: 주차 중에도 주행 화면을 확인 (실제 주행 중에는 규제 상태로 자동 전환)
             var previewDrive by remember { mutableStateOf(false) }
+            val fleetWet = fleetState.reports.groupBy { it.vehicleId }.values
+                .count { rs -> rs.maxBy { it.observedAtEpochSec }.level > RainLevel.NONE }
             HermesTheme {
                 Surface {
-                    if (driving || previewDrive) Box(Modifier.fillMaxSize().clickable(enabled = previewDrive && !driving) { previewDrive = false }) {
-                        DriveScreen(routeRain, legs, radarState.nowcaster == null && kmaState.updatedAtEpochSec == 0L)
+                    if (driving || previewDrive) {
+                        Box(Modifier.fillMaxSize().clickable(enabled = previewDrive && !driving) { previewDrive = false }) {
+                            DriveScreen(routeRain, legs, radarState.nowcaster == null && kmaState.updatedAtEpochSec == 0L)
+                        }
+                    } else {
+                        AppShell(tab, { tab = it }, fleetWet) {
+                            when (tab) {
+                                Tab.BRIEFING -> BriefingScreen(
+                                    routeRain = routeRain, legs = legs, radar = radarState, kma = kmaState, fleet = fleetState,
+                                    onOpenStop = { selectedStop = it; tab = Tab.ROUTE },
+                                    onOpenFleet = { tab = Tab.FLEET },
+                                    onRequestTestRoute = naviMonitor::requestTestRoute,
+                                )
+                                Tab.ROUTE -> RouteScreen(
+                                    routeRain = routeRain, legs = legs, radar = radarState,
+                                    selected = selectedStop, onSelect = { selectedStop = it },
+                                    onRequestTestRoute = naviMonitor::requestTestRoute,
+                                )
+                                Tab.FLEET -> FleetScreen(
+                                    fleet = fleetState, vehicle = vehicle, routeRain = routeRain,
+                                    onToggleConsent = { fleet.setConsent(!fleetState.consent) },
+                                    onSeedDemo = { lifecycleScope.launch { seedDemo(points, nowcaster) } },
+                                )
+                                Tab.DIAGNOSTICS -> DiagnosticsScreen(
+                                    vehicle = vehicle,
+                                    navi = navi,
+                                    radar = radarState,
+                                    kma = kmaState,
+                                    routeRain = routeRain,
+                                    legs = legs,
+                                    fleet = fleetState,
+                                    onRequestTestRoute = naviMonitor::requestTestRoute,
+                                    onToggleConsent = { fleet.setConsent(!fleetState.consent) },
+                                    onSeedDemo = { lifecycleScope.launch { seedDemo(points, nowcaster) } },
+                                    onClose = { tab = Tab.BRIEFING },
+                                    onPreviewDrive = { previewDrive = true },
+                                )
+                            }
+                        }
                     }
-                    else if (!showDiagnostics) HomeScreen(
-                        routeRain = routeRain,
-                        legs = legs,
-                        radar = radarState,
-                        kma = kmaState,
-                        fleet = fleetState,
-                        vehicle = vehicle,
-                        onToggleConsent = { fleet.setConsent(!fleetState.consent) },
-                        onSeedDemo = { lifecycleScope.launch { seedDemo(points, nowcaster) } },
-                        onRequestTestRoute = naviMonitor::requestTestRoute,
-                        onOpenDiagnostics = { showDiagnostics = true },
-                    )
-                    else DiagnosticsScreen(
-                        vehicle = vehicle,
-                        navi = navi,
-                        radar = radarState,
-                        kma = kmaState,
-                        routeRain = routeRain,
-                        legs = legs,
-                        fleet = fleetState,
-                        onRequestTestRoute = naviMonitor::requestTestRoute,
-                        onToggleConsent = { fleet.setConsent(!fleetState.consent) },
-                        onSeedDemo = { lifecycleScope.launch { seedDemo(points, nowcaster) } },
-                        onClose = { showDiagnostics = false },
-                        onPreviewDrive = { previewDrive = true },
-                    )
                 }
             }
         }

@@ -46,50 +46,53 @@ data class IviColors(
     val ivi_rain_unknown: Color,
 )
 
+// 색 방향: 진한 남색 브랜드 + 청록 강조, 강수 단계는 초록→파랑→노랑→주황→빨강 순서
+// (사내 HMG 디자인 시스템의 구성 방식을 참고해 Hermes 값으로 새로 정의 — docs/design/README.md)
 private val NightColors = IviColors(
-    ivi_background_app = Color(0xFF0A1020),
-    ivi_surface_card = Color(0xFF111A2E),
-    ivi_surface_card_raised = Color(0xFF17223A),
-    ivi_border_card = Color(0xFF243150),
-    ivi_text_primary = Color(0xFFF2F5FA),
-    ivi_text_secondary = Color(0xFFA9B4C8),
-    ivi_text_label = Color(0xFF7F8BA3),
-    ivi_accent_primary = Color(0xFF4CC3FF),
-    ivi_accent_on_primary = Color(0xFF04223A),
-    ivi_status_safe = Color(0xFF3DD68C),
-    ivi_status_caution = Color(0xFFF5C451),
-    ivi_status_warning = Color(0xFFFF6B5E),
-    ivi_rain_none = Color(0xFF1F4A44),
-    ivi_rain_light = Color(0xFF4FA8F0),
-    ivi_rain_moderate = Color(0xFFF5C451),
-    ivi_rain_heavy = Color(0xFFFF9B3D),
-    ivi_rain_very_heavy = Color(0xFFFF5A5F),
-    ivi_rain_unknown = Color(0xFF3A4560),
+    ivi_background_app = Color(0xFF070D1A),
+    ivi_surface_card = Color(0xFF0F1A2E),
+    ivi_surface_card_raised = Color(0xFF16233C),
+    ivi_border_card = Color(0xFF22324F),
+    ivi_text_primary = Color(0xFFF4F7FB),
+    ivi_text_secondary = Color(0xFFB2BDD0),
+    ivi_text_label = Color(0xFF8592AB),
+    ivi_accent_primary = Color(0xFF5FD0EC),
+    ivi_accent_on_primary = Color(0xFF00222B),
+    ivi_status_safe = Color(0xFF5CC77A),
+    ivi_status_caution = Color(0xFFFFC266),
+    ivi_status_warning = Color(0xFFFF7A70),
+    ivi_rain_none = Color(0xFF2F6B45),
+    ivi_rain_light = Color(0xFF5B95F8),
+    ivi_rain_moderate = Color(0xFFFFC266),
+    ivi_rain_heavy = Color(0xFFFF9257),
+    ivi_rain_very_heavy = Color(0xFFF0625C),
+    ivi_rain_unknown = Color(0xFF3A4762),
 )
 
 private val DayColors = IviColors(
-    ivi_background_app = Color(0xFFF3F5F9),
+    ivi_background_app = Color(0xFFEFF1F4),
     ivi_surface_card = Color(0xFFFFFFFF),
-    ivi_surface_card_raised = Color(0xFFF7F9FC),
-    ivi_border_card = Color(0xFFDDE3EC),
-    ivi_text_primary = Color(0xFF0E1726),
-    ivi_text_secondary = Color(0xFF475468),
-    ivi_text_label = Color(0xFF66738A),
-    ivi_accent_primary = Color(0xFF0B6BCB),
+    ivi_surface_card_raised = Color(0xFFF5F6F8),
+    ivi_border_card = Color(0xFFD5D9DF),
+    ivi_text_primary = Color(0xFF0D1014),
+    ivi_text_secondary = Color(0xFF4C525C),
+    ivi_text_label = Color(0xFF636A75),
+    ivi_accent_primary = Color(0xFF032D60),
     ivi_accent_on_primary = Color(0xFFFFFFFF),
-    ivi_status_safe = Color(0xFF13894F),
-    ivi_status_caution = Color(0xFF9A6B00),
-    ivi_status_warning = Color(0xFFC62B21),
-    ivi_rain_none = Color(0xFFBFE3D2),
-    ivi_rain_light = Color(0xFF3B8EDB),
-    ivi_rain_moderate = Color(0xFFE0A800),
-    ivi_rain_heavy = Color(0xFFEA7A12),
-    ivi_rain_very_heavy = Color(0xFFD7263D),
-    ivi_rain_unknown = Color(0xFFB8C2D1),
+    ivi_status_safe = Color(0xFF1A7F2B),
+    ivi_status_caution = Color(0xFF8F5200),
+    ivi_status_warning = Color(0xFFB8261F),
+    ivi_rain_none = Color(0xFFBFD9C4),
+    ivi_rain_light = Color(0xFF2268F0),
+    ivi_rain_moderate = Color(0xFFF2A12E),
+    ivi_rain_heavy = Color(0xFFD9570F),
+    ivi_rain_very_heavy = Color(0xFFC42D2A),
+    ivi_rain_unknown = Color(0xFFADB4C0),
 )
 
 /** 타이포 토큰. 주행 중 핵심 정보는 큰 크기, 보조 텍스트도 최소 18sp 유지 */
 object IviType {
+    val hero = TextStyle(fontSize = 52.sp, fontWeight = FontWeight.Bold, lineHeight = 60.sp)
     val display = TextStyle(fontSize = 44.sp, fontWeight = FontWeight.Bold, lineHeight = 52.sp)
     val headline = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Bold, lineHeight = 38.sp)
     val title = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.SemiBold, lineHeight = 30.sp)
@@ -109,8 +112,9 @@ object IviSpace {
     val xl = 32.dp
     val cardRadius = 22.dp
     val chipRadius = 12.dp
-    /** 터치 대상 최소 높이 */
-    val touchMin = 64.dp
+    /** 터치 대상 최소 높이 (차량용으로 넉넉하게) */
+    val touchMin = 76.dp
+    val railWidth = 132.dp
 }
 
 val LocalIviColors = staticCompositionLocalOf { NightColors }
