@@ -166,6 +166,12 @@ private fun describe(f: PointForecast): String = when (f) {
     is PointForecast.Kma ->
         "기상청 " + (if (f.level == RainLevel.NONE) "비 없음" else "${f.level.label}${if (f.snow) "(눈)" else ""} %.1fmm/h".format(f.rateMmPerHour)) +
             (f.pop?.let { " · 확률 $it%" } ?: "")
+    is PointForecast.Fleet -> {
+        val e = f.evidence
+        val changed = f.level != f.base.rainLevel
+        (if (changed) "차량 보정 ${f.level?.label ?: "-"} ← " else "") + describe(f.base) +
+            " · 주변 차량 ${e.vehicles}대(비 ${e.wetVehicles})"
+    }
     is PointForecast.BeyondHorizon ->
         "예측 범위 밖 (+${f.leadMinutes}분) · 지금 그곳: ${f.observedNow?.label ?: "레이더 영역 밖"}"
     PointForecast.OutOfCoverage -> "레이더 영역 밖"

@@ -28,6 +28,15 @@ sealed interface PointForecast {
         override val rainLevel get() = level
     }
 
+    /** 주변 차량 와이퍼 관측으로 보정한 결과. [level]이 null이면 판단 불가 */
+    data class Fleet(
+        val level: RainLevel?,
+        val base: PointForecast,
+        val evidence: com.zigae.hermes.fleet.FleetEvidence,
+    ) : PointForecast {
+        override val rainLevel get() = level
+    }
+
     /** 예측 가능 시간(외삽 한계)을 넘음. [observedNow]는 그 지점의 최신 관측 강수(참고용). */
     data class BeyondHorizon(val leadMinutes: Int, val observedNow: RainLevel?) : PointForecast {
         override val rainLevel: RainLevel? get() = null
@@ -82,6 +91,13 @@ class Nowcaster(
         val radius = baseRadiusPx + if (growthMinPerPx > 0) (leadMin.toDouble() / growthMinPerPx).roundToInt() else 0
         val dbz = latest.maxAround(sx, sy, radius) ?: return PointForecast.OutOfCoverage
         return PointForecast.Rain(RainLevel.fromDbz(dbz), dbz, RainLevel.rainRateMmPerHour(dbz), leadMin)
+    }
+
+    /** 지점의 비구름 이동 속도 (동쪽, 북쪽 m/s) — 크라우드 관측 이동에 쓴다 */
+    fun velocityAt(lat: Double, lon: Double): Pair<Double, Double> {
+        val (vx, vy) = field?.at(latest.gridX(lon), latest.gridY(lat)) ?: (motion.vxPxPerSec to motion.vyPxPerSec)
+        val mpp = WebMercator.metersPerPixel(lat, latest.zoom)
+        return vx * mpp to -vy * mpp
     }
 
     companion object {
