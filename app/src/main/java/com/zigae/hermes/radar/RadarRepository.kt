@@ -64,6 +64,13 @@ class RadarRepository(
         job?.cancel()
     }
 
+    private fun userMessage(e: Exception): String = when (e) {
+        is java.net.UnknownHostException, is java.net.ConnectException, is java.net.SocketTimeoutException ->
+            "네트워크 연결 없음 · 1분 후 다시 시도"
+        is java.io.IOException -> "레이더 서버 응답 오류 · 1분 후 다시 시도"
+        else -> "레이더 처리 오류 (${e.javaClass.simpleName})"
+    }
+
     private fun currentRange(): TileRange? =
         TileRange.covering(pointsProvider(), ZOOM, MARGIN_PX, MAX_TILES)
 
@@ -79,7 +86,8 @@ class RadarRepository(
         } catch (e: Exception) {
             Log.w(TAG, "radar refresh failed", e)
             lastRefreshMs = System.currentTimeMillis() - REFRESH_INTERVAL_MS + RETRY_DELAY_MS
-            _state.update { it.copy(loading = false, error = e.message ?: e.javaClass.simpleName) }
+            // 이미 받은 예측기는 유지하고 오류만 표시한다 (화면에 관측 시각이 함께 보이므로 오래된 정도를 알 수 있음)
+            _state.update { it.copy(loading = false, error = userMessage(e)) }
         }
     }
 
