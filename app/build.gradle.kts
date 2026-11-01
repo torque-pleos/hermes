@@ -31,8 +31,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 코드·리소스 축소. Pleos SDK는 AAR에 consumer 규칙 포함(navi-data, vehicle 등), 앱 규칙은 proguard-rules.pro
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // 시연·설치 확인용으로 디버그 키 서명. 마켓 제출 시 업로드 키로 교체할 것
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

@@ -15,7 +15,13 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell am start -S -n com.zigae.hermes/.MainActivity
 adb logcat -s Hermes/Vehicle Hermes/Navi Hermes/Radar Hermes/KMA Hermes/Fleet
+
+# 릴리스(R8 축소, 3.5MB). 시연용으로 디버그 키 서명 — 마켓 제출 시 업로드 키로 교체
+./gradlew assembleRelease   # app/build/outputs/apk/release/app-release.apk
 ```
+
+- 릴리스 빌드는 디버그 불가(`run-as` 안 됨). 사용자 데이터 삭제는 `adb shell pm clear --user 10 com.zigae.hermes`(AAOS는 user 10).
+- R8 규칙: `app/proguard-rules.pro`. Vehicle SDK 내부 Gson `TypeToken`이 제네릭 시그니처를 잃으면 도어 capability 조회가 실패하므로 Signature·TypeToken 보존 규칙 필수.
 
 - 에뮬레이터는 반드시 `-no-audio`로 실행 ([docs/pleos/emulator-setup.md](docs/pleos/emulator-setup.md)).
 - `local.properties`(sdk.dir)는 커밋하지 않는다.
@@ -105,6 +111,7 @@ adb logcat -s Hermes/Vehicle Hermes/Navi Hermes/Radar Hermes/KMA Hermes/Fleet
 | 차량 공유 서버 | ✅ 실제 관측 삽입 201, 시연 플래그·과거 시각 삽입은 RLS 거부(42501), 삭제 0건, 시연 RPC 정상 |
 | 차량 공유 앱 | ✅ 동의 후 1분 주기 업로드(14:23:51, 14:24:51, 좌표 37.415/127.095로 반올림), 주변 관측 조회, 시연 버튼 → 서울→대전 구간 "차량 보정 강한 비 ← 비 없음 · 주변 차량 3대(비 3) · 22분 뒤" |
 | 2번째 Pleos 에뮬레이터 동시 실행 | ⚠️ 다른 작업이 `emulator-5556`을 띄우자 `emulator-5554`의 Virtual Console이 `emulator_inactive`(와이퍼·기어 변경 불가). adb는 `ANDROID_SERIAL=emulator-5554`로 지정 |
+| 릴리스(R8) 빌드 | ✅ APK 3.5MB(디버그 46.6MB). 내비·주소 검색·레이더·기상청·차량 공유 업로드·시연·와이퍼·기어 정상. 도어 capability가 Gson TypeToken 문제로 실패 → 규칙 추가 후 정상 |
 | 에뮬레이터 Wi-Fi | ⚠️ 비행기 모드 해제 후 자동 재연결 안 됨 → 설정 > 연결 > Wi-Fi에서 AndroidWifi 탭 (adb `cmd wifi connect-network`는 권한 없음) |
 
 ### 검증하지 못한 항목
