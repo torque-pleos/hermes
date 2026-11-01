@@ -181,7 +181,8 @@ private fun ColumnScope.RadarSection(
     }
 
     // F4 미리보기: 현재 위치 레이더 vs 와이퍼
-    val here = routeRain.firstOrNull()?.forecast as? PointForecast.Rain
+    // 차량 보정 전의 레이더 판단과 내 와이퍼를 비교한다
+    val here = routeRain.firstOrNull()?.forecast?.let { (it as? PointForecast.Fleet)?.base ?: it } as? PointForecast.Rain
     Spacer(Modifier.height(8.dp))
     Line("교차 검증", "레이더 ${here?.level?.label ?: "-"} / 와이퍼 ${vehicle.wiperSwitch.toRain().label}")
 }
