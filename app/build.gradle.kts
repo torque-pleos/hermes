@@ -8,6 +8,8 @@ plugins {
 
 android {
     namespace = "com.zigae.hermes"
+    // CarUxRestrictionsManager (주행 규제 상태)
+    useLibrary("android.car")
     compileSdk = 36
 
     defaultConfig {

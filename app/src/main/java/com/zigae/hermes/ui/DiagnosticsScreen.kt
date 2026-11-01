@@ -91,7 +91,7 @@ private fun km(meters: Int) = "%.1fkm".format(meters / 1000.0)
 private fun min(seconds: Int) = if (seconds >= 3600) "${seconds / 3600}시간 ${seconds % 3600 / 60}분" else "${seconds / 60}분"
 
 private val clock = SimpleDateFormat("HH:mm", Locale.KOREA)
-private fun hhmm(epochSec: Long) = clock.format(Date(epochSec * 1000))
+internal fun hhmm(epochSec: Long): String = clock.format(Date(epochSec * 1000))
 
 private val compass = listOf("북", "북동", "동", "남동", "남", "남서", "서", "북서")
 private fun compass(deg: Double) = compass[((deg + 22.5) / 45).toInt() % 8]

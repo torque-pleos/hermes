@@ -19,6 +19,8 @@ import com.zigae.hermes.radar.RadarRepository
 import com.zigae.hermes.radar.RoutePoint
 import com.zigae.hermes.radar.RouteRain
 import com.zigae.hermes.ui.DiagnosticsScreen
+import com.zigae.hermes.ui.DriveScreen
+import com.zigae.hermes.vehicle.DrivingState
 import com.zigae.hermes.vehicle.VehicleMonitor
 import com.zigae.hermes.weather.BlendedForecaster
 import com.zigae.hermes.weather.KmaRepository
@@ -31,10 +33,12 @@ class MainActivity : ComponentActivity() {
     private lateinit var naviMonitor: NaviMonitor
     private lateinit var radar: RadarRepository
     private val kma = KmaRepository(BuildConfig.KMA_SERVICE_KEY)
+    private lateinit var drivingState: DrivingState
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         vehicleMonitor = VehicleMonitor(this, lifecycleScope).also { it.start() }
+        drivingState = DrivingState(this)
         naviMonitor = NaviMonitor(this, lifecycleScope).also { it.start() }
         radar = RadarRepository(lifecycleScope, pointsProvider = {
             RouteRain.allSamples(routePoints(naviMonitor.state.value))
@@ -53,6 +57,7 @@ class MainActivity : ComponentActivity() {
             val navi by naviMonitor.state.collectAsStateWithLifecycle()
             val radarState by radar.state.collectAsStateWithLifecycle()
             val kmaState by kma.state.collectAsStateWithLifecycle()
+            val driving by drivingState.requiresDistractionOptimization.collectAsStateWithLifecycle()
             // 남은 시간 기반 ETA와 "n분 전" 표시를 갱신하기 위한 틱
             var tick by remember { mutableLongStateOf(0L) }
             LaunchedEffect(Unit) { while (true) { delay(30_000); tick++ } }
@@ -66,7 +71,7 @@ class MainActivity : ComponentActivity() {
 
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface {
-                    DiagnosticsScreen(
+                    if (driving) DriveScreen(routeRain, legs) else DiagnosticsScreen(
                         vehicle = vehicle,
                         navi = navi,
                         radar = radarState,
@@ -81,6 +86,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        drivingState.release()
         radar.stop()
         naviMonitor.stop()
         vehicleMonitor.stop()
