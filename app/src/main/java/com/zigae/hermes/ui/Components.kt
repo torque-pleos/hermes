@@ -66,7 +66,7 @@ fun Pressable(
     modifier: Modifier = Modifier,
     shape: RoundedCornerShape = RoundedCornerShape(IviSpace.cardRadius),
     color: Color = Ivi.colors.ivi_surface_card,
-    border: Color = Ivi.colors.ivi_border_card,
+    border: Color = Color.Transparent,
     borderWidth: Dp = 1.dp,
     content: @Composable () -> Unit,
 ) {
@@ -84,12 +84,12 @@ fun Pressable(
             },
         shape = shape,
         color = color,
-        border = BorderStroke(borderWidth, border),
+        border = if (border == Color.Transparent) null else BorderStroke(borderWidth, border),
         content = content,
     )
 }
 
-/** 테두리가 있는 정보 카드 (누를 수 없음) */
+/** 정보 면 (누를 수 없음). 테두리 없이 배경 단차로만 구분한다 */
 @Composable
 fun IviCard(
     modifier: Modifier = Modifier,
@@ -102,7 +102,6 @@ fun IviCard(
         modifier = modifier,
         shape = RoundedCornerShape(IviSpace.cardRadius),
         color = c.ivi_surface_card,
-        border = BorderStroke(1.dp, c.ivi_border_card),
     ) {
         Column(Modifier.padding(IviSpace.l), verticalArrangement = Arrangement.spacedBy(IviSpace.m)) {
             if (label != null || trailing != null) {
@@ -118,10 +117,7 @@ fun IviCard(
 
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(Ivi.colors.ivi_accent_primary))
-        Text("  $text", style = IviType.label, color = Ivi.colors.ivi_text_label, maxLines = 1)
-    }
+    Text(text, modifier = modifier, style = IviType.label, color = Ivi.colors.ivi_text_secondary, maxLines = 1)
 }
 
 /** 작은 배지 (출처·상태) */
@@ -130,9 +126,8 @@ fun Chip(text: String, color: Color = Ivi.colors.ivi_text_secondary, filled: Boo
     Box(
         Modifier
             .clip(RoundedCornerShape(IviSpace.chipRadius))
-            .then(if (filled) Modifier.background(color.copy(alpha = 0.16f)) else Modifier)
-            .border(1.dp, color.copy(alpha = 0.6f), RoundedCornerShape(IviSpace.chipRadius))
-            .padding(horizontal = 14.dp, vertical = 6.dp),
+            .background(color.copy(alpha = if (filled) 0.18f else 0.10f))
+            .padding(horizontal = 12.dp, vertical = 4.dp),
     ) {
         Text(text, style = IviType.caption, color = color, maxLines = 1)
     }
@@ -237,12 +232,14 @@ fun BigToggle(title: String, subtitle: String, checked: Boolean, onToggle: () ->
     }
 }
 
-/** 큰 숫자 타일 (누르면 해당 화면으로) */
+/**
+ * 사실 한 칸: 작은 제목 · 값 · 설명. 누르면 해당 화면으로 가고 오른쪽 꺾쇠로 누를 수 있음을 알린다.
+ * 카드 껍데기 없이 한 면 안에 나란히 놓는다(FactRow).
+ */
 @Composable
-fun StatTile(
+fun Fact(
     label: String,
     value: String,
-    unit: String,
     detail: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -250,16 +247,29 @@ fun StatTile(
     valueColor: Color = Ivi.colors.ivi_text_primary,
 ) {
     val c = Ivi.colors
-    Pressable(onClick, modifier.defaultMinSize(minHeight = 168.dp)) {
-        Column(Modifier.padding(IviSpace.l), verticalArrangement = Arrangement.spacedBy(IviSpace.s)) {
-            Text(label, style = IviType.label, color = c.ivi_text_label, maxLines = 1)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                leading?.let { it(); Spacer(Modifier.width(IviSpace.m)) }
-                Text(value, style = IviType.number, color = valueColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(" $unit", style = IviType.body, color = c.ivi_text_secondary, maxLines = 1)
+    Pressable(onClick, modifier.defaultMinSize(minHeight = 132.dp), shape = RoundedCornerShape(IviSpace.cardRadius), color = Color.Transparent) {
+        Row(Modifier.padding(horizontal = IviSpace.l, vertical = IviSpace.m), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(label, style = IviType.label, color = c.ivi_text_secondary, maxLines = 1)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    leading?.let { it(); Spacer(Modifier.width(IviSpace.s)) }
+                    Text(value, style = IviType.headline, color = valueColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Text(detail, style = IviType.caption, color = c.ivi_text_secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Text(detail, style = IviType.caption, color = c.ivi_text_secondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Chevron()
         }
+    }
+}
+
+/** 누를 수 있는 줄의 오른쪽 꺾쇠 */
+@Composable
+fun Chevron(color: Color = Ivi.colors.ivi_text_label) {
+    Canvas(Modifier.size(28.dp)) {
+        val w = size.width
+        val h = size.height
+        drawLine(color, Offset(w * 0.38f, h * 0.22f), Offset(w * 0.66f, h * 0.5f), strokeWidth = w * 0.1f, cap = StrokeCap.Round)
+        drawLine(color, Offset(w * 0.66f, h * 0.5f), Offset(w * 0.38f, h * 0.78f), strokeWidth = w * 0.1f, cap = StrokeCap.Round)
     }
 }
 
@@ -267,10 +277,10 @@ fun StatTile(
 @Composable
 fun RailItem(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit, badge: String? = null) {
     val c = Ivi.colors
-    val bg by animateColorAsState(if (selected) c.ivi_accent_primary.copy(alpha = 0.16f) else Color.Transparent, label = "rail")
+    val bg by animateColorAsState(if (selected) c.ivi_accent_primary.copy(alpha = 0.14f) else Color.Transparent, label = "rail")
     Pressable(
         onClick, Modifier.fillMaxWidth().defaultMinSize(minHeight = 112.dp),
-        shape = RoundedCornerShape(24.dp), color = bg, border = if (selected) c.ivi_accent_primary else Color.Transparent,
+        shape = RoundedCornerShape(IviSpace.cardRadius), color = bg,
     ) {
         Column(Modifier.padding(vertical = IviSpace.m), horizontalAlignment = Alignment.CenterHorizontally) {
             Box {
@@ -310,4 +320,10 @@ fun HeadingArrow(headingDeg: Double, size: Dp = 40.dp, color: Color = Ivi.colors
         }
         drawPath(p, color, style = Fill)
     }
+}
+
+/** 가로 구분선 */
+@Composable
+fun HDivider() {
+    Box(Modifier.fillMaxWidth().height(1.dp).background(Ivi.colors.ivi_border_card))
 }

@@ -57,7 +57,7 @@ fun DiagnosticsScreen(
             Text("Hermes · SDK 진단", fontSize = 36.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Button(onClick = onPreviewDrive) { Text("주행 화면 미리보기", fontSize = 20.sp) }
             Spacer(Modifier.width(12.dp))
-            Button(onClick = onClose) { Text("← 운행 브리핑", fontSize = 20.sp) }
+            Button(onClick = onClose) { Text("운행 브리핑으로", fontSize = 20.sp) }
         }
         Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -91,7 +91,7 @@ fun DiagnosticsScreen(
                 Line("이벤트", navi.lastEvent ?: "-")
                 Line("오류", navi.lastError ?: "없음")
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = onRequestTestRoute) { Text("테스트 경로 설정 (대전 경유 → 부산신항)", fontSize = 20.sp) }
+                Button(onClick = onRequestTestRoute) { Text("테스트 경로: 대전 경유, 부산신항 도착", fontSize = 20.sp) }
             }
             Panel("경로 강수 (레이더 + 기상청)") {
                 RadarSection(radar, kma, routeRain, legs, vehicle)

@@ -3,6 +3,11 @@ package com.zigae.hermes.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -38,7 +43,7 @@ import com.zigae.hermes.ui.theme.IviType
 import com.zigae.hermes.ui.theme.rainColor
 
 /**
- * 경로: 왼쪽 정차지 카드 목록(큰 터치 대상) · 오른쪽 선택한 정차지 상세(가는 길 시간대별 강수 막대, 근거).
+ * 경로: 왼쪽은 정차지를 선으로 이은 목록(줄 전체가 터치 대상), 오른쪽은 선택한 정차지 상세 한 면.
  * 좁은 창에서는 위아래로 쌓는다.
  */
 @Composable
@@ -56,26 +61,27 @@ fun RouteScreen(
         val wide = maxWidth > 900.dp
         if (routeRain.size < 2) {
             Column(Modifier.padding(IviSpace.xl), verticalArrangement = Arrangement.spacedBy(IviSpace.l)) {
-                Text("경로", style = IviType.display, color = c.ivi_text_primary)
-                Text("내비게이션에 목적지가 없습니다.", style = IviType.title, color = c.ivi_text_secondary)
-                IviButton("시연 경로 설정 (대전 경유 → 부산신항)", onRequestTestRoute, icon = HermesIcons.Navigation)
+                Text("경로", style = IviType.headline, color = c.ivi_text_primary)
+                Text("내비게이션에 목적지가 없습니다", style = IviType.display, color = c.ivi_text_primary)
+                IviButton("시연 경로 넣기: 대전 경유, 부산신항 도착", onRequestTestRoute, icon = HermesIcons.Navigation)
             }
             return@BoxWithConstraints
         }
         val sel = selected.coerceIn(0, routeRain.lastIndex)
         val list: @Composable (Modifier) -> Unit = { m ->
-            Column(m, verticalArrangement = Arrangement.spacedBy(IviSpace.m)) {
-                Text("경로", style = IviType.display, color = c.ivi_text_primary)
-                Text("정차지를 눌러 가는 길 강수를 확인하세요", style = IviType.body, color = c.ivi_text_secondary)
-                Spacer(Modifier.height(IviSpace.s))
-                routeRain.forEachIndexed { i, p -> StopCard(i, p, now, legs.getOrNull(i - 1), i == sel) { onSelect(i) } }
+            Column(m) {
+                Text("경로", style = IviType.headline, color = c.ivi_text_primary)
+                Spacer(Modifier.height(IviSpace.l))
+                routeRain.forEachIndexed { i, p ->
+                    StopRow(i, p, now, legs.getOrNull(i - 1), i == sel, first = i == 0, last = i == routeRain.lastIndex) { onSelect(i) }
+                }
             }
         }
         val detail: @Composable (Modifier) -> Unit = { m -> StopDetail(routeRain[sel], sel, legs.getOrNull(sel - 1), now, radar, m) }
         if (wide) {
-            Row(Modifier.fillMaxSize().padding(IviSpace.xl), horizontalArrangement = Arrangement.spacedBy(IviSpace.xl)) {
-                list(Modifier.weight(0.45f).verticalScroll(rememberScrollState()))
-                detail(Modifier.weight(0.55f).verticalScroll(rememberScrollState()))
+            Row(Modifier.fillMaxSize().padding(horizontal = IviSpace.xl, vertical = IviSpace.l), horizontalArrangement = Arrangement.spacedBy(IviSpace.xl)) {
+                list(Modifier.weight(0.42f).verticalScroll(rememberScrollState()))
+                detail(Modifier.weight(0.58f).verticalScroll(rememberScrollState()))
             }
         } else {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(IviSpace.l), verticalArrangement = Arrangement.spacedBy(IviSpace.l)) {
@@ -86,90 +92,111 @@ fun RouteScreen(
     }
 }
 
-/** 정차지 카드: 번호 · 이름 · 도착 시각 · 도착 시 강수 아이콘 (최소 높이 120dp) */
+/**
+ * 정차지 한 줄: 왼쪽 세로선과 점(출발은 속이 찬 점), 이름·도착 시각, 오른쪽 도착 시 강수 아이콘.
+ * 점 사이 세로선은 그 구간 최대 강수 색으로 칠해 가는 길의 비를 목록에서도 보이게 한다.
+ */
 @Composable
-private fun StopCard(index: Int, p: RoutePointRain, now: Long, legBefore: LegRain?, selected: Boolean, onClick: () -> Unit) {
+private fun StopRow(
+    index: Int, p: RoutePointRain, now: Long, legBefore: LegRain?, selected: Boolean,
+    first: Boolean, last: Boolean, onClick: () -> Unit,
+) {
     val c = Ivi.colors
     val worstOnWay = legBefore?.worst?.forecast?.rainLevel
+    val lineIn = if (legBefore != null) rainColor(worstOnWay).takeIf { (worstOnWay ?: RainLevel.NONE) > RainLevel.NONE } ?: c.ivi_border_card else c.ivi_border_card
+    val nodeColor = if (selected) c.ivi_accent_primary else c.ivi_text_secondary
     Pressable(
-        onClick, Modifier.fillMaxWidth().defaultMinSize(minHeight = 120.dp),
-        color = if (selected) c.ivi_accent_primary.copy(alpha = 0.12f) else c.ivi_surface_card,
-        border = if (selected) c.ivi_accent_primary else c.ivi_border_card,
-        borderWidth = if (selected) 2.dp else 1.dp,
+        onClick, Modifier.fillMaxWidth().defaultMinSize(minHeight = 128.dp),
+        color = if (selected) c.ivi_surface_card else Color.Transparent,
     ) {
-        Row(Modifier.padding(IviSpace.l), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(56.dp).clip(CircleShape).background(if (index == 0) c.ivi_accent_primary else c.ivi_surface_card_raised),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(if (index == 0) "●" else "$index", style = IviType.title, color = if (index == 0) c.ivi_accent_on_primary else c.ivi_text_primary)
+        Row(Modifier.height(IntrinsicSize.Min).padding(end = IviSpace.l), verticalAlignment = Alignment.CenterVertically) {
+            // 세로선 + 점
+            Canvas(Modifier.width(72.dp).fillMaxHeight()) {
+                val x = size.width / 2
+                val y = size.height / 2
+                val lw = 8.dp.toPx()
+                if (!first) drawLine(lineIn, Offset(x, 0f), Offset(x, y), strokeWidth = lw)
+                if (!last) drawLine(c.ivi_border_card, Offset(x, y), Offset(x, size.height), strokeWidth = lw)
+                val r = 14.dp.toPx()
+                if (first) drawCircle(nodeColor, r, Offset(x, y))
+                else {
+                    drawCircle(c.ivi_background_app, r, Offset(x, y))
+                    drawCircle(nodeColor, r, Offset(x, y), style = androidx.compose.ui.graphics.drawscope.Stroke(5.dp.toPx()))
+                }
             }
-            Spacer(Modifier.width(IviSpace.l))
-            Column(Modifier.weight(1f)) {
-                Text(kind(p.point.label, index), style = IviType.label, color = c.ivi_text_label)
+            Column(Modifier.weight(1f).padding(vertical = IviSpace.m)) {
                 Text(if (index == 0) "현재 위치" else short(p.point.label), style = IviType.title, color = c.ivi_text_primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    if (index == 0) "지금" else "${hhmm(p.point.etaEpochSec)} 도착 · ${relative(p.point.etaEpochSec - now)}",
+                    if (index == 0) "지금 출발" else "${hhmm(p.point.etaEpochSec)} 도착, ${relative(p.point.etaEpochSec - now)}",
                     style = IviType.body, color = c.ivi_text_secondary,
                 )
                 if (worstOnWay != null && worstOnWay > RainLevel.NONE) {
-                    Text("가는 길 ${worstOnWay.label}", style = IviType.caption, color = rainColor(worstOnWay))
+                    Text("가는 길에 ${worstOnWay.label}", style = IviType.bodyStrong, color = rainColor(worstOnWay))
                 }
             }
+            Spacer(Modifier.width(IviSpace.m))
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                RainGlyph(p.forecast.rainLevel, 56.dp)
+                RainGlyph(p.forecast.rainLevel, 52.dp)
                 Text(arrivalText(p.forecast), style = IviType.caption, color = c.ivi_text_secondary)
             }
         }
     }
 }
 
+/** 선택한 정차지 상세: 한 면 안에 도착 시 강수 → 가는 길 막대 → 비구름 이동을 구분선으로 나눈다 */
 @Composable
 private fun StopDetail(p: RoutePointRain, index: Int, leg: LegRain?, now: Long, radar: RadarState, modifier: Modifier) {
     val c = Ivi.colors
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(IviSpace.l)) {
-        IviCard(Modifier.fillMaxWidth(), label = if (index == 0) "NOW · 현재 위치" else "ARRIVAL · ${kind(p.point.label, index)}") {
-            Text(if (index == 0) "현재 위치" else short(p.point.label), style = IviType.display, color = c.ivi_text_primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                if (index == 0) "지금 이 위치" else "${hhmm(p.point.etaEpochSec)} 도착 · ${relative(p.point.etaEpochSec - now)}",
-                style = IviType.title, color = c.ivi_text_secondary,
-            )
+    Surface(modifier, shape = RoundedCornerShape(IviSpace.cardRadius), color = c.ivi_surface_card) {
+        Column(Modifier.padding(IviSpace.xl), verticalArrangement = Arrangement.spacedBy(IviSpace.l)) {
+            Column {
+                Text(if (index == 0) "현재 위치" else short(p.point.label), style = IviType.display, color = c.ivi_text_primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    if (index == 0) "지금" else "${kind(p.point.label, index)}, ${hhmm(p.point.etaEpochSec)} 도착 (${relative(p.point.etaEpochSec - now)})",
+                    style = IviType.title, color = c.ivi_text_secondary,
+                )
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 RainGlyph(p.forecast.rainLevel, 88.dp)
                 Spacer(Modifier.width(IviSpace.l))
                 Column {
-                    Text(if (index == 0) "지금 강수" else "도착할 때 강수", style = IviType.label, color = c.ivi_text_label)
-                    Text(arrivalText(p.forecast), style = IviType.headline, color = c.ivi_text_primary)
-                    Text(sourceText(p.forecast), style = IviType.caption, color = c.ivi_text_secondary, maxLines = 2)
+                    Text(
+                        (if (index == 0) "지금 " else "도착할 때 ") + arrivalText(p.forecast),
+                        style = IviType.headline, color = c.ivi_text_primary,
+                    )
+                    Text(sourceText(p.forecast), style = IviType.body, color = c.ivi_text_secondary, maxLines = 2)
                 }
             }
-        }
-        if (leg != null) {
-            IviCard(Modifier.fillMaxWidth(), label = "ON THE WAY · 가는 길 ${hhmm(leg.from.etaEpochSec)}~${hhmm(leg.to.etaEpochSec)}") {
+            if (leg != null) {
+                HDivider()
+                Text("가는 길 ${hhmm(leg.from.etaEpochSec)}–${hhmm(leg.to.etaEpochSec)}", style = IviType.label, color = c.ivi_text_secondary)
                 LegBars(leg)
                 val w = leg.worst
                 val l = w?.forecast?.rainLevel
                 Text(
                     when {
                         w == null -> "예보 범위 밖 구간입니다"
-                        l == null || l == RainLevel.NONE -> "가는 길 비 예보 없음"
-                        else -> "${hhmm(w.point.etaEpochSec)} 부근 ${l.label} · ${sourceText(w.forecast)}"
+                        l == null || l == RainLevel.NONE -> "가는 길에 비 소식 없음"
+                        else -> "${hhmm(w.point.etaEpochSec)}쯤 ${l.label}, ${sourceText(w.forecast)}"
                     },
                     style = IviType.bodyStrong, color = c.ivi_text_primary, maxLines = 2,
                 )
-                if (leg.beyondHorizon > 0) Text("표본 ${leg.samples.size}개 중 ${leg.beyondHorizon}개는 예보 범위 밖", style = IviType.caption, color = c.ivi_text_label)
-                Text("직선 근사 · ${(com.zigae.hermes.radar.RouteRain.SAMPLE_SPACING_M / 1000).toInt()}km 간격 표본", style = IviType.caption, color = c.ivi_text_label)
+                if (leg.beyondHorizon > 0) Text("표본 ${leg.samples.size}곳 중 ${leg.beyondHorizon}곳은 예보 범위 밖", style = IviType.caption, color = c.ivi_text_secondary)
             }
-        }
-        radar.nowcaster?.let { cast ->
-            val m = cast.motion
-            if (m.confidence > 0) IviCard(Modifier.fillMaxWidth(), label = "RADAR · 비구름 이동") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    HeadingArrow(m.headingDeg(), 64.dp)
-                    Spacer(Modifier.width(IviSpace.l))
-                    Column {
-                        Text("${compassKo(m.headingDeg())}쪽 %.0fkm/h".format(m.speedKmh(p.point.lat, cast.latest.zoom)), style = IviType.headline, color = c.ivi_text_primary)
-                        Text("관측 ${hhmm(cast.latest.timeEpochSec)} · 신뢰도 %.0f%%".format(m.confidence * 100) + if (cast.field != null) " · 지역별 보정" else "", style = IviType.caption, color = c.ivi_text_secondary)
+            radar.nowcaster?.let { cast ->
+                val m = cast.motion
+                if (m.confidence > 0) {
+                    HDivider()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        HeadingArrow(m.headingDeg(), 56.dp)
+                        Spacer(Modifier.width(IviSpace.l))
+                        Column {
+                            Text("비구름이 ${compassKo(m.headingDeg())}쪽으로 %.0fkm/h".format(m.speedKmh(p.point.lat, cast.latest.zoom)), style = IviType.title, color = c.ivi_text_primary)
+                            Text(
+                                "${hhmm(cast.latest.timeEpochSec)} 레이더 관측, 신뢰도 %.0f%%".format(m.confidence * 100) + if (m.confidence < 0.2) " (비구름이 적어 참고용)" else "",
+                                style = IviType.caption, color = c.ivi_text_secondary,
+                            )
+                        }
                     }
                 }
             }
@@ -185,7 +212,7 @@ private fun LegBars(leg: LegRain) {
     val levels = samples.map { it.forecast.rainLevel }
     val base = Ivi.colors.ivi_border_card
     Column {
-        Canvas(Modifier.fillMaxWidth().height(140.dp)) {
+        Canvas(Modifier.fillMaxWidth().height(96.dp)) {
             val n = samples.size
             val gap = 8f
             val bw = (size.width - gap * (n - 1)) / n

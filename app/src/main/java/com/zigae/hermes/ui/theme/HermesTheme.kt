@@ -10,7 +10,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -99,8 +98,8 @@ object IviType {
     val body = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Normal, lineHeight = 28.sp)
     val bodyStrong = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, lineHeight = 28.sp)
     val caption = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Normal, lineHeight = 24.sp)
-    /** 섹션 라벨: 작은 대문자 + 자간 (레퍼런스의 "DRIVER / NAVIGATION" 스타일) */
-    val label = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.6.sp, fontFamily = FontFamily.Monospace)
+    /** 작은 제목: 본문보다 작고 굵게. 대문자·고정폭·넓은 자간을 쓰지 않는다 */
+    val label = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, lineHeight = 24.sp)
     val number = TextStyle(fontSize = 40.sp, fontWeight = FontWeight.Bold, lineHeight = 44.sp)
 }
 
@@ -110,8 +109,8 @@ object IviSpace {
     val m = 16.dp
     val l = 24.dp
     val xl = 32.dp
-    val cardRadius = 22.dp
-    val chipRadius = 12.dp
+    val cardRadius = 16.dp
+    val chipRadius = 8.dp
     /** 터치 대상 최소 높이 (차량용으로 넉넉하게) */
     val touchMin = 76.dp
     val railWidth = 132.dp

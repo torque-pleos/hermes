@@ -1,7 +1,6 @@
 package com.zigae.hermes.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,7 +56,7 @@ fun DriveScreen(routeRain: List<RoutePointRain>, legs: List<LegRain>, loading: B
         }
         Text("다음 정차", style = IviType.label, color = c.ivi_text_label)
         Text(
-            "${short(next.to.label)} · ${hhmm(next.to.etaEpochSec)} 도착",
+            "${short(next.to.label)} ${hhmm(next.to.etaEpochSec)} 도착",
             style = IviType.display, color = c.ivi_text_primary, maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(IviSpace.xl))
@@ -65,8 +64,8 @@ fun DriveScreen(routeRain: List<RoutePointRain>, legs: List<LegRain>, loading: B
         val level = worst?.forecast?.rainLevel
         Hero(
             level,
-            if (worst == null || level == null || level == RainLevel.NONE) "가는 길 비 예보 없음"
-            else "${hhmm(worst.point.etaEpochSec)} 부근 ${level.label}",
+            if (worst == null || level == null || level == RainLevel.NONE) "가는 길에 비 소식 없음"
+            else "${hhmm(worst.point.etaEpochSec)}쯤 ${level.label}",
             when {
                 (worst?.forecast as? PointForecast.Fleet)?.evidence?.consensus != null ->
                     "주변 차량 ${(worst.forecast as PointForecast.Fleet).evidence.wetVehicles}대가 비 관측"
@@ -82,11 +81,11 @@ fun DriveScreen(routeRain: List<RoutePointRain>, legs: List<LegRain>, loading: B
                 RainGlyph(l, 44.dp)
                 Spacer(Modifier.width(IviSpace.m))
                 Text(
-                    "이후 ${short(after.to.label)} ${hhmm(after.to.etaEpochSec)} · " +
+                    "그다음 ${short(after.to.label)} 가는 길: " +
                         when {
                             w == null || l == null -> "예보 범위 밖"
-                            l == RainLevel.NONE -> "비 예보 없음"
-                            else -> "${hhmm(w.point.etaEpochSec)} 부근 ${l.label}"
+                            l == RainLevel.NONE -> "비 소식 없음"
+                            else -> "${hhmm(w.point.etaEpochSec)}쯤 ${l.label}"
                         },
                     style = IviType.title, color = c.ivi_text_secondary, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
@@ -100,8 +99,7 @@ private fun Hero(level: RainLevel?, text: String, sub: String?) {
     val c = Ivi.colors
     val color = rainColor(level)
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(color.copy(alpha = 0.14f))
-            .border(2.dp, color, RoundedCornerShape(28.dp)).padding(IviSpace.l),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(IviSpace.cardRadius)).background(color.copy(alpha = 0.18f)).padding(IviSpace.l),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RainGlyph(level ?: RainLevel.NONE, 112.dp)

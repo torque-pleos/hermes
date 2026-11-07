@@ -37,9 +37,9 @@ internal fun arrivalText(f: PointForecast): String = when (f) {
 
 /** 근거(출처) 한 줄 */
 internal fun sourceText(f: PointForecast): String = when (f) {
-    is PointForecast.Fleet -> "주변 차량 ${f.evidence.vehicles}대(비 ${f.evidence.wetVehicles}) · " + sourceText(f.base)
-    is PointForecast.Rain -> "레이더 ${f.leadMinutes}분 예측 · %.1fmm/h".format(f.rateMmPerHour)
-    is PointForecast.Kma -> "기상청 예보" + (f.pop?.let { " · 강수확률 $it%" } ?: "") + if (f.rateMmPerHour > 0) " · %.1fmm/h".format(f.rateMmPerHour) else ""
-    is PointForecast.BeyondHorizon -> "레이더 예측 범위 밖 · 지금 그곳 ${f.observedNow?.label ?: "정보 없음"}"
-    PointForecast.OutOfCoverage -> "레이더·예보 범위 밖"
+    is PointForecast.Fleet -> "주변 차량 ${f.evidence.vehicles}대 중 ${f.evidence.wetVehicles}대 비, " + sourceText(f.base)
+    is PointForecast.Rain -> "레이더 ${f.leadMinutes}분 예측" + if (f.rateMmPerHour > 0) ", 시간당 %.1fmm".format(f.rateMmPerHour) else ""
+    is PointForecast.Kma -> "기상청 예보" + (f.pop?.let { ", 강수확률 $it%" } ?: "") + if (f.rateMmPerHour > 0) ", 시간당 %.1fmm".format(f.rateMmPerHour) else ""
+    is PointForecast.BeyondHorizon -> "레이더 예측 범위 밖, 지금 그곳은 ${f.observedNow?.label ?: "정보 없음"}"
+    PointForecast.OutOfCoverage -> "레이더와 예보 범위 밖"
 }

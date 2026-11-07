@@ -35,12 +35,9 @@ fun AppShell(tab: Tab, onTab: (Tab) -> Unit, fleetWet: Int, content: @Composable
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(IviSpace.s),
         ) {
-            // 앱 마크
-            Box(
-                Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(c.ivi_accent_primary),
-                contentAlignment = Alignment.Center,
-            ) { Text("H", style = IviType.headline, color = c.ivi_accent_on_primary) }
-            Spacer(Modifier.height(IviSpace.m))
+            // 앱 이름 (로고 대신 글자)
+            Text("Hermes", style = IviType.title, color = c.ivi_accent_primary, modifier = Modifier.padding(vertical = IviSpace.s))
+            Spacer(Modifier.height(IviSpace.s))
             RailItem(HermesIcons.Dashboard, "브리핑", tab == Tab.BRIEFING, { onTab(Tab.BRIEFING) })
             RailItem(HermesIcons.Route, "경로", tab == Tab.ROUTE, { onTab(Tab.ROUTE) })
             RailItem(HermesIcons.Groups, "차량 공유", tab == Tab.FLEET, { onTab(Tab.FLEET) }, badge = fleetWet.takeIf { it > 0 }?.toString())
