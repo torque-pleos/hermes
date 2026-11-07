@@ -1,5 +1,56 @@
 # Hermes — 화물 기사용 운행 점검 & 경로 강수 레이더 코파일럿
 
+## 제출 안내
+
+### ① 앱 이름 · 한 줄 소개
+
+**Hermes** — 내비 경로의 경유지·도착지마다 **도착하는 시각에 비가 오는지**를 강수 레이더 이동 예측, 기상청 단기예보, 주변 차량의 와이퍼 관측으로 알려 주는 화물 기사용 차량 앱.
+
+시연 영상: [docs/demo/hermes_demo.mp4](docs/demo/hermes_demo.mp4)
+
+### ② 실행 방법
+
+Pleos Connect 에뮬레이터를 켠 뒤 APK를 설치하고 실행합니다.
+
+```bash
+adb install -r apk/정건우_Hermes_release.apk
+adb shell am start -n com.zigae.hermes/.MainActivity
+```
+
+에뮬레이터를 여러 대 띄웠다면 `adb -s emulator-5554 install ...`처럼 시리얼을 붙입니다. 앱 목록의 **Hermes** 아이콘으로도 실행할 수 있습니다.
+
+소스에서 빌드하려면 JDK 17이 필요합니다. 빌드 결과는 `app/build/outputs/apk/release/app-release.apk`입니다.
+
+```bash
+cp secrets.properties.example secrets.properties   # 키는 비워 둬도 빌드됨
+./gradlew assembleRelease
+```
+
+### ③ 테스트 환경 · 필요한 설정
+
+| 항목 | 내용 |
+| --- | --- |
+| 에뮬레이터 | Pleos Connect 에뮬레이터 **v2.1.0** (Android 14, 2560×1440). 오디오를 켜면 부팅 직후 멈추므로 `emulator -avd <AVD 이름> -no-audio`로 실행 |
+| 네트워크 | 인터넷 필요 (RainViewer 레이더, 기상청 단기예보, 차량 공유 서버). 에뮬레이터 Wi-Fi가 끊기면 설정 > 연결 > Wi-Fi에서 AndroidWifi를 누릅니다 |
+| 경로 | 내비에 목적지가 없으면 브리핑 화면에 **"시연 경로 넣기: 대전 경유, 부산신항 도착"** 버튼이 나옵니다. 누르면 NaviHelper로 경로가 설정됩니다. 내비에서 직접 목적지·경유지를 넣어도 됩니다 |
+| 기상청 키 | 제출 APK에는 키가 들어 있습니다. 키 없이 소스에서 빌드하면 지금부터 60분까지는 레이더 예측만 쓰고, 그 뒤 구간은 "레이더와 예보 범위 밖"으로 표시합니다 |
+| 차량 공유 | **차량 공유** 탭에서 "내 와이퍼 관측 공유" 스위치를 켜면 와이퍼 상태를 1분마다 올립니다. **"시연: 경로 앞에 비 관측 차량 만들기"** 버튼은 경로 상류에 비를 보는 가상 차량 5대를 만들어, 브리핑·경로 예보가 차량 관측으로 바뀌는 모습을 보여 줍니다. 가상 차량은 10분 뒤 자동으로 지워집니다. 서버 설정 없이 빌드하면 "공유 서버가 설정되지 않았습니다"로 표시합니다 |
+| Virtual Console | 와이퍼·기어 값을 바꿀 때 씁니다. 아래 명령 참고 |
+| 주행 화면 | 기어를 Drive로 바꾸면 주행 중 화면(입력·스크롤 없는 3줄 요약)으로 자동 전환됩니다. 정차 상태에서는 **진단** 탭의 "주행 화면 미리보기"로 볼 수 있습니다 |
+| 화면 모드 | 시스템 주간·야간 모드를 따릅니다 |
+
+```bash
+adb forward tcp:8088 tcp:8088
+curl -X PUT "http://127.0.0.1:8088/vehicle/body?front_wiper=High"   # Off | Auto | Low | High
+curl -X PUT "http://127.0.0.1:8088/vehicle/gear?gear=Drive"         # Park | Reverse | Neutral | Drive
+```
+
+### ④ APK 위치
+
+[`apk/정건우_Hermes_release.apk`](apk/) — release 빌드(R8 축소), 디버그 키 서명, 약 3.6MB.
+
+---
+
 > **이름의 유래**: 헤르메스(Hermes) — 여행자·상인·운송의 수호신이자 신들의 전령. 짐을 싣고 길 위를 달리는 화물 기사와 운송사를 지킨다는 의미.
 
 | 항목 | 내용 |
