@@ -6,7 +6,7 @@
 
 **Hermes** — 내비 경로의 경유지·도착지마다 **도착하는 시각에 비가 오는지**를 강수 레이더 이동 예측, 기상청 단기예보, 주변 차량의 와이퍼 관측으로 알려 주는 화물 기사용 차량 앱.
 
-시연 영상: [docs/demo/hermes_demo.mp4](docs/demo/hermes_demo.mp4)
+시연 영상: [docs/demo/hermes_demo.mp4](docs/demo/hermes_demo.mp4) (2분 11초)
 
 ### ② 실행 방법
 
